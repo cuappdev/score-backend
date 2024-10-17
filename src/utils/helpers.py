@@ -12,6 +12,7 @@ def get_dominant_color(relative_path, white_threshold=200, black_threshold=50):
     image = Image.open(BytesIO(response.content)).convert("RGBA")
     
     image = image.resize((50, 50))
+    image = image.quantize(colors=5).convert("RGBA")
     pixels = image.getdata()
 
     filtered_pixels = [
@@ -27,7 +28,6 @@ def get_dominant_color(relative_path, white_threshold=200, black_threshold=50):
         dominant_color = (0, 0, 0)
 
     return dominant_color
-
 
 dominant_color = get_dominant_color('/images/logos/Princeton_Tigers.png?width=80&height=80&mode=max')
 print(f"Dominant color: {dominant_color}")
