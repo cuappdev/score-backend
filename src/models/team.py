@@ -15,7 +15,7 @@ class Team:
 
     def __init__(self, **kwargs):
         id = kwargs.get("_id")
-        self.id = id if id else ObjectId()
+        self.id = id if id else str(ObjectId())
         self.color = kwargs.get("color")
         self.image = kwargs.get("image")
         self.name = kwargs.get("name")
@@ -38,9 +38,9 @@ class Team:
         """
         return Team(
             _id=data.get("_id"),
-            city=data.get("color"),
-            date=data.get("image"),
-            gender=data.get("name"),
+            color=data.get("color"),
+            image=data.get("image"),
+            name=data.get("name"),
         )
 
     @staticmethod
@@ -50,13 +50,23 @@ class Team:
         """
         team_collection = db["team"]
         teams = team_collection.find()
-        print(teams)
         return [Team.from_dict(team) for team in teams]
 
     @staticmethod
-    def team(team):
+    def insert_team(team):
         """
         Inserts a new team into the 'team' collection in MongoDB.
         """
         team_collection = db["team"]
         team_collection.insert_one(team.to_dict())
+
+    @staticmethod
+    def get_team_by_id(team_id):
+        """
+        Fetch a team from the MongoDB collection by its ID.
+        """
+        team_collection = db["team"]
+        team_data = team_collection.find_one({"_id": team_id})
+        if not team_data:
+            return None
+        return Team.from_dict(team_data)

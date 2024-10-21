@@ -19,7 +19,7 @@ class Game:
 
     def __init__(self, **kwargs):
         id = kwargs.get("_id")
-        self.id = id if id else ObjectId()
+        self.id = id if id else str(ObjectId())
         self.city = kwargs.get("city")
         self.date = kwargs.get("date")
         self.gender = kwargs.get("gender")
@@ -55,6 +55,7 @@ class Game:
             gender=data.get("gender"),
             opponent_id=data.get("opponent_id"),
             sport=data.get("sport"),
+            state=data.get("state"),
             time=data.get("time"),
         )
 
@@ -69,9 +70,22 @@ class Game:
         return [Game.from_dict(game) for game in games]
 
     @staticmethod
-    def game(game):
+    def insert_game(game):
         """
         Inserts a new game into the 'games' collection in MongoDB.
         """
         game_collection = db["game"]
         game_collection.insert_one(game.to_dict())
+        print(game_collection)
+
+    @staticmethod
+    def get_game_by_id(game_id):
+        """
+        Fetch a game from the MongoDB collection by its ID.
+        """
+        game_collection = db["game"]
+        game_data = game_collection.find_one({"_id": game_id})
+
+        if not game_data:
+            return None
+        return Game.from_dict(game_data)
