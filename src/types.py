@@ -31,6 +31,7 @@ class GameType(ObjectType):
         - `city`: The city of the game.
         - `date`: The date of the game.
         - `gender`: The gender of the game.
+        - `location`: The location of the game.
         - `opponent_id`: The id of the opposing team.
         - `sport`: The sport of the game.
         - `state`: The state of the game.
@@ -41,16 +42,20 @@ class GameType(ObjectType):
     city = String(required=True)
     date = String(required=True)
     gender = String(required=True)
+    location = String(required=True)
     opponent_id = String(required=True)
     sport = String(required=True)
     state = String(required=True)
     time = String(required=True)
 
-    def __init__(self, id, city, date, gender, opponent_id, sport, state, time):
+    def __init__(
+        self, id, city, date, gender, location, opponent_id, sport, state, time
+    ):
         self.id = id
         self.city = city
         self.date = date
         self.gender = gender
+        self.location = location
         self.opponent_id = opponent_id
         self.sport = sport
         self.state = state
