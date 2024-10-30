@@ -42,15 +42,16 @@ class GameType(ObjectType):
     date = String(required=True)
     gender = String(required=True)
     opponent_id = String(required=True)
-    id = String(required=False)
-    city = String(required=True)
-    date = String(required=True)
-    gender = String(required=True)
-    opponent_id = String(required=True)
     sport = String(required=True)
     state = String(required=True)
     time = String(required=True)
 
-    def __init__(self, **kwargs):
-        for key, value in kwargs.items():
-            setattr(self, key, value)
+    def __init__(self, id, city, date, gender, opponent_id, sport, state, time):
+        self.id = id
+        self.city = city
+        self.date = date
+        self.gender = gender
+        self.opponent_id = opponent_id
+        self.sport = sport
+        self.state = state
+        self.time = time
