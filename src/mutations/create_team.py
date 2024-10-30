@@ -1,6 +1,6 @@
 from graphene import Mutation, String, Field
 from src.types import TeamType
-from src.services.team_service import TeamService
+from src.services import TeamService
 
 
 class CreateTeam(Mutation):
