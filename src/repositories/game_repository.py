@@ -16,14 +16,6 @@ class GameRepository:
         return [Game.from_dict(game) for game in games]
 
     @staticmethod
-    def insert(game):
-        """
-        Inserts a new game into the 'games' collection in MongoDB.
-        """
-        game_collection = db["game"]
-        game_collection.insert_one(game.to_dict())
-
-    @staticmethod
     def find_by_id(game_id):
         """
         Fetch a game from the MongoDB collection by its ID.
@@ -37,3 +29,11 @@ class GameRepository:
         game_collection = db["game"]
         game_data = game_collection.find_one({"_id": game_id})
         return Game.from_dict(game_data) if game_data else None
+
+    @staticmethod
+    def insert(game):
+        """
+        Inserts a new game into the 'games' collection in MongoDB.
+        """
+        game_collection = db["game"]
+        game_collection.insert_one(game.to_dict())

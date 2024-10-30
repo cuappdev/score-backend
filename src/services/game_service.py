@@ -12,6 +12,13 @@ class GameService:
         return GameRepository.find_all()
 
     @staticmethod
+    def get_game_by_id(game_id):
+        """
+        Retrieve a game by its ID.
+        """
+        return GameRepository.find_by_id(game_id)
+
+    @staticmethod
     def create_game(data):
         """
         Create a new game.
@@ -23,10 +30,3 @@ class GameService:
         game = Game(**data)
         GameRepository.insert(game)
         return game
-
-    @staticmethod
-    def get_game_by_id(game_id):
-        """
-        Retrieve a game by its ID.
-        """
-        return GameRepository.find_by_id(game_id)
