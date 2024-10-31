@@ -42,7 +42,7 @@ class GameType(ObjectType):
     city = String(required=True)
     date = String(required=True)
     gender = String(required=True)
-    location = String(required=True)
+    location = String(required=False)
     opponent_id = String(required=True)
     sport = String(required=True)
     state = String(required=True)

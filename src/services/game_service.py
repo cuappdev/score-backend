@@ -30,3 +30,26 @@ class GameService:
         game = Game(**data)
         GameRepository.insert(game)
         return game
+
+    @staticmethod
+    def delete_game(game_id):
+        """
+        Delete a game by its ID.
+        """
+        GameRepository.delete_by_id(game_id)
+
+    @staticmethod
+    def update_game(game_id, data):
+        """
+        Update a game by its ID.
+        """
+        GameRepository.update_by_id(game_id, data)
+
+    @staticmethod
+    def get_game_by_data(city, date, gender, location, opponent_id, sport, state, time):
+        """
+        Retrieve a game by its data.
+        """
+        return GameRepository.find_by_data(
+            city, date, gender, location, opponent_id, sport, state, time
+        )

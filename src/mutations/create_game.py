@@ -8,7 +8,7 @@ class CreateGame(Mutation):
         city = String(required=True)
         date = String(required=True)
         gender = String(required=True)
-        location = String(required=True)
+        location = String(required=False)
         opponent_id = String(required=True)
         sport = String(required=True)
         state = String(required=True)
@@ -17,7 +17,7 @@ class CreateGame(Mutation):
     game = Field(lambda: GameType)
 
     def mutate(
-        self, info, city, date, gender, location, opponent_id, sport, state, time
+        self, info, city, date, gender, opponent_id, sport, state, time, location=None
     ):
         print("A")
         game_data = {

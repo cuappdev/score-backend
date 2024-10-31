@@ -37,3 +37,39 @@ class GameRepository:
         """
         game_collection = db["game"]
         game_collection.insert_one(game.to_dict())
+
+    @staticmethod
+    def delete_by_id(game_id):
+        """
+        Delete a game from the MongoDB collection by its ID.
+        """
+        game_collection = db["game"]
+        game_collection.delete_one({"_id": game_id})
+
+    @staticmethod
+    def update_by_id(game_id, data):
+        """
+        Update a game in the MongoDB collection by its ID.
+        """
+        game_collection = db["game"]
+        game_collection.update_one({"_id": game_id}, {"$set": data})
+
+    @staticmethod
+    def find_by_data(city, date, gender, location, opponent_id, sport, state, time):
+        """
+        Retrieve a game from the MongoDB collection by its data.
+        """
+        game_collection = db["game"]
+        game_data = game_collection.find_one(
+            {
+                "city": city,
+                "date": date,
+                "gender": gender,
+                "location": location,
+                "opponent_id": opponent_id,
+                "sport": sport,
+                "state": state,
+                "time": time,
+            }
+        )
+        return Game.from_dict(game_data) if game_data else None

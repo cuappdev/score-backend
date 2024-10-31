@@ -10,7 +10,7 @@ class Game:
         - `city`        The city of the game.
         - `date`        The date of the game.
         - `gender`      The gender of the game.
-        - `location`    The location of the game.
+        - `location`    The location of the game. (optional)
         - `opponent_id` The id of the opposing team.
         - `sport`       The sport of the game.
         - `state`       The state of the game.
@@ -18,7 +18,16 @@ class Game:
     """
 
     def __init__(
-        self, city, date, gender, location, opponent_id, sport, state, time, id=None
+        self,
+        city,
+        date,
+        gender,
+        opponent_id,
+        sport,
+        state,
+        time,
+        id=None,
+        location=None,
     ):
         self.id = id if id else str(ObjectId())
         self.city = city
@@ -52,6 +61,7 @@ class Game:
         Converts a MongoDB document to a Game object.
         """
         return Game(
+            id=data.get("_id"),
             city=data.get("city"),
             date=data.get("date"),
             gender=data.get("gender"),
@@ -60,5 +70,4 @@ class Game:
             sport=data.get("sport"),
             state=data.get("state"),
             time=data.get("time"),
-            id=data.get("_id"),
         )
