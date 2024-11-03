@@ -8,13 +8,13 @@ class TeamType(ObjectType):
     Attributes:
         - `id`: The ID of the team (optional).
         - `color`: The color of the team.
-        - `image`: The image of the team.
+        - `image`: The image of the team (optional).
         - `name`: The name of the team.
     """
 
     id = String(required=False)
     color = String(required=True)
-    image = String(required=True)
+    image = String(required=False)
     name = String(required=True)
 
     def __init__(self, **kwargs):

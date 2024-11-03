@@ -13,7 +13,7 @@ class Team:
         - `name`         The name of the team.
     """
 
-    def __init__(self, color, image, name, id=None):
+    def __init__(self, color, name, id=None, image=None):
         self.id = id if id else str(ObjectId())
         self.color = color
         self.image = image
