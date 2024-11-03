@@ -12,9 +12,10 @@ class Game:
         - `gender`      The gender of the game.
         - `location`    The location of the game. (optional)
         - `opponent_id` The id of the opposing team.
+        - `result`      The result of the game. (optional)
         - `sport`       The sport of the game.
         - `state`       The state of the game.
-        - `time`        The time of the game.
+        - `time`        The time of the game. (optional)
     """
 
     def __init__(
@@ -25,9 +26,10 @@ class Game:
         opponent_id,
         sport,
         state,
-        time,
         id=None,
         location=None,
+        result=None,
+        time=None,
     ):
         self.id = id if id else str(ObjectId())
         self.city = city
@@ -35,6 +37,7 @@ class Game:
         self.gender = gender
         self.location = location
         self.opponent_id = opponent_id
+        self.result = result
         self.sport = sport
         self.state = state
         self.time = time
@@ -50,6 +53,7 @@ class Game:
             "gender": self.gender,
             "location": self.location,
             "opponent_id": self.opponent_id,
+            "result": self.result,
             "sport": self.sport,
             "state": self.state,
             "time": self.time,
@@ -67,6 +71,7 @@ class Game:
             gender=data.get("gender"),
             location=data.get("location"),
             opponent_id=data.get("opponent_id"),
+            result=data.get("result"),
             sport=data.get("sport"),
             state=data.get("state"),
             time=data.get("time"),

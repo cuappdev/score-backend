@@ -40,6 +40,12 @@ def parse_schedule_page(url, sport, gender):
         location_tag = game_item.select_one(LOCATION_TAG)
         game_data["location"] = location_tag.text.strip() if location_tag else None
 
+        result_tag = game_item.select_one(RESULT_TAG)
+        if result_tag:
+            game_data["result"] = result_tag.text.strip().replace("\n", "")
+        else:
+            game_data["result"] = None
+
         process_game_data(game_data)
 
 
@@ -62,7 +68,7 @@ def process_game_data(game_data):
         }
         team = TeamService.create_team(team_data)
 
-    if GameService.get_game_by_data(
+    curr_game = GameService.get_game_by_data(
         city,
         game_data["date"],
         game_data["gender"],
@@ -71,7 +77,10 @@ def process_game_data(game_data):
         game_data["sport"],
         state,
         game_data["time"],
-    ):
+    )
+    if curr_game:
+        if curr_game.result != game_data["result"]:
+            GameService.update_game(curr_game.id, {"result": game_data["result"]})
         return
 
     game_data = {
@@ -80,6 +89,7 @@ def process_game_data(game_data):
         "gender": game_data["gender"],
         "location": location,
         "opponent_id": team.id,
+        "result": game_data["result"],
         "sport": game_data["sport"],
         "state": state,
         "time": game_data["time"],
