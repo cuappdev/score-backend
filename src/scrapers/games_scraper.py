@@ -96,8 +96,3 @@ def process_game_data(game_data):
     }
 
     GameService.create_game(game_data)
-
-
-# if __name__ == "__main__":
-#     url = "https://cornellbigred.com/sports/mens-basketball/schedule"
-#     scrape_game_schedule(url)
