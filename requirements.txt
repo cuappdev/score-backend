@@ -2,3 +2,5 @@ Flask
 Flask-GraphQL
 graphene
 pymongo
+beautifulsoup4
+requests
