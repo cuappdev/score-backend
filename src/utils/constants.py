@@ -110,3 +110,7 @@ SPORT_URLS = {
     "womens-track-and-field": {"sport": "Track & Field", "gender": "Womens"},
     "womens-volleyball": {"sport": "Volleyball", "gender": "Womens"},
 }
+
+IMAGE_BASE_URL = (
+    "https://dxbhsrqyrr690.cloudfront.net/sidearm.nextgen.sites/cornellbigred.com"
+)

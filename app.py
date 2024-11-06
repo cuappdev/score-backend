@@ -4,7 +4,6 @@ from flask_graphql import GraphQLView
 from flask_apscheduler import APScheduler
 from graphene import Schema
 from src.schema import Query, Mutation
-from src.database import init_db
 from src.scrapers.games_scraper import fetch_game_schedule
 
 app = Flask(__name__)
@@ -37,7 +36,6 @@ def scrape_schedules():
     fetch_game_schedule()
 
 
-init_db()
 scrape_schedules()
 
 if __name__ == "__main__":

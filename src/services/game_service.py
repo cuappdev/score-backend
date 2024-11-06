@@ -25,7 +25,6 @@ class GameService:
         """
         opponent_id = data.get("opponent_id")
         if not TeamService.get_team_by_id(opponent_id):
-            print(f"Opponent team with id {opponent_id} does not exist.")
             raise ValueError(f"Opponent team with id {opponent_id} does not exist.")
         game = Game(**data)
         GameRepository.insert(game)

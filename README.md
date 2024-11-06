@@ -2,7 +2,7 @@
 
 Tech stack:
 
-1. Typescript/Node.js
+1. Python
 2. MongoDB
 3. GraphQL
 
