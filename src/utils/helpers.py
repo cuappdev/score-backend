@@ -3,7 +3,6 @@ from PIL import Image
 from io import BytesIO
 from collections import Counter
 
-
 def get_dominant_color(image_url, white_threshold=200, black_threshold=50):
     """
     Get the hex code of the dominant color of an image.
