@@ -1,5 +1,8 @@
 # Prefix for opponent image URLs
-IMAGE_PREFIX = "https://cornellbigred.com"
+IMAGE_PREFIX = "https://dxbhsrqyrr690.cloudfront.net/sidearm.nextgen.sites/cornellbigred.com"
+
+# Base URL
+BASE_URL = "https://cornellbigred.com"
 
 # The tag for each game
 GAME_TAG = ".sidearm-schedule-game"

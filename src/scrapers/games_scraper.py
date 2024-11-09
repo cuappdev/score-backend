@@ -2,7 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 from src.services import GameService, TeamService
 from src.utils.constants import *
-
+from src.scrapers.game_details_scrape import scrape_game
 
 def fetch_game_schedule():
     for sport, data in SPORT_URLS.items():
@@ -13,7 +13,6 @@ def fetch_game_schedule():
 def parse_schedule_page(url, sport, gender):
     response = requests.get(url)
     soup = BeautifulSoup(response.content, "html.parser")
-
     for game_item in soup.select(GAME_TAG):
         game_data = {}
 
@@ -29,7 +28,7 @@ def parse_schedule_page(url, sport, gender):
             opponent_logo_tag[OPPONENT_LOGO_URL_ATTR] if opponent_logo_tag else None
         )
         game_data["opponent_logo"] = (
-            IMAGE_PREFIX + opponent_logo if opponent_logo else None
+            BASE_URL + opponent_logo if opponent_logo else None
         )
 
         date_tag = game_item.select_one(DATE_TAG)
@@ -45,6 +44,16 @@ def parse_schedule_page(url, sport, gender):
             game_data["result"] = result_tag.text.strip().replace("\n", "")
         else:
             game_data["result"] = None
+            
+        box_score_tag = game_item.select_one(".sidearm-schedule-game-links-boxscore a")
+        if box_score_tag:
+            box_score_link = box_score_tag["href"]
+            game_details = scrape_game(f"{BASE_URL}{box_score_link}", sport.lower())
+            game_data["box_score"] = game_details["scoring_summary"]
+            game_data["score_breakdown"] = game_details["scores"]
+        else:
+            game_data["box_score"] = None
+            game_data["score_breakdown"] = None
 
         process_game_data(game_data)
 
@@ -93,11 +102,8 @@ def process_game_data(game_data):
         "sport": game_data["sport"],
         "state": state,
         "time": game_data["time"],
+        "box_score": game_data["box_score"],
+        "score_breakdown": game_data["score_breakdown"]
     }
 
     GameService.create_game(game_data)
-
-
-# if __name__ == "__main__":
-#     url = "https://cornellbigred.com/sports/mens-basketball/schedule"
-#     scrape_game_schedule(url)

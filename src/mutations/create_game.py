@@ -14,6 +14,8 @@ class CreateGame(Mutation):
         sport = String(required=True)
         state = String(required=True)
         time = String(required=True)
+        box_score = String(required=False)
+        score_breakdown = String(required=False)
 
     game = Field(lambda: GameType)
 
@@ -29,8 +31,9 @@ class CreateGame(Mutation):
         location=None,
         result=None,
         time=None,
+        box_score=None,
+        score_breakdown=None
     ):
-        print("A")
         game_data = {
             "city": city,
             "date": date,
@@ -41,7 +44,8 @@ class CreateGame(Mutation):
             "sport": sport,
             "state": state,
             "time": time,
+            "box_score": box_score,
+            "score_breakdown": score_breakdown
         }
-        print(game_data["city"])
         new_game = GameService.create_game(game_data)
         return CreateGame(game=new_game)
