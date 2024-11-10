@@ -3,6 +3,8 @@ from bs4 import BeautifulSoup
 from src.services import GameService, TeamService
 from src.utils.constants import *
 from src.scrapers.game_details_scrape import scrape_game
+from src.utils.helpers import get_dominant_color
+
 
 def fetch_game_schedule():
     for sport, data in SPORT_URLS.items():
@@ -19,8 +21,12 @@ def parse_schedule_page(url, sport, gender):
         game_data["gender"] = gender
         game_data["sport"] = sport
 
-        opponent_name_tag = game_item.select_one(OPPONENT_NAME_TAG)
-        opponent_name = opponent_name_tag.text.strip() if opponent_name_tag else None
+        opponent_name_tag = game_item.select_one(OPPONENT_NAME_TAG_A)
+        opponent_name = (
+            opponent_name_tag.text.strip()
+            if opponent_name_tag
+            else game_item.select_one(OPPONENT_NAME_TAG).text.strip()
+        )
         game_data["opponent_name"] = opponent_name
 
         opponent_logo_tag = game_item.select_one(OPPONENT_LOGO_TAG)
@@ -74,8 +80,13 @@ def process_game_data(game_data):
 
     team = TeamService.get_team_by_name(game_data["opponent_name"])
     if not team:
+        color = (
+            get_dominant_color(game_data["opponent_logo"])
+            if game_data["opponent_logo"]
+            else "#FFFFFF"
+        )
         team_data = {
-            "color": "#000000",
+            "color": color,
             "image": game_data["opponent_logo"],
             "name": game_data["opponent_name"],
         }
