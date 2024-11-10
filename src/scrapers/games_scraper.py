@@ -4,7 +4,6 @@ from src.services import GameService, TeamService
 from src.utils.constants import *
 from src.scrapers.game_details_scrape import scrape_game
 from src.utils.helpers import get_dominant_color
-from src.scrapers.game_details_scrape import scrape_game
 
 def fetch_game_schedule():
     """
