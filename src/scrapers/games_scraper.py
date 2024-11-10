@@ -6,12 +6,23 @@ from src.utils.helpers import get_dominant_color
 
 
 def fetch_game_schedule():
+    """
+    Scrape the game schedule from the given URLs and store the data in the database.
+    """
     for sport, data in SPORT_URLS.items():
         url = SCHEDULE_PREFIX + sport + SCHEDULE_POSTFIX
         parse_schedule_page(url, data["sport"], data["gender"])
 
 
 def parse_schedule_page(url, sport, gender):
+    """
+    Parse the game schedule page and store the data in the database.
+
+    Args:
+        url (str): The URL of the game schedule page.
+        sport (str): The sport of the games.
+        gender (str): The gender of the games.
+    """
     response = requests.get(url)
     soup = BeautifulSoup(response.content, "html.parser")
 
@@ -55,6 +66,12 @@ def parse_schedule_page(url, sport, gender):
 
 
 def process_game_data(game_data):
+    """
+    Process the game data and store it in the database.
+
+    Args:
+        game_data (dict): A dictionary containing the game data.
+    """
     location_data = game_data["location"].split("\n")
     geo_location = location_data[0]
     if (",") not in geo_location:

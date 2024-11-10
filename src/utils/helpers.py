@@ -5,8 +5,17 @@ from collections import Counter
 
 
 def get_dominant_color(image_url, white_threshold=200, black_threshold=50):
-    # image_url = f"{IMAGE_BASE_URL}{relative_path}"
+    """
+    Get the hex code of the dominant color of an image.
 
+    Args:
+        image_url (str): The URL of the image.
+        white_threshold (int): The threshold for white pixels. (optional)
+        black_threshold (int): The threshold for black pixels. (optional)
+
+    Returns:
+        color: The hex code of the dominant color.
+    """
     response = requests.get(image_url)
     image = Image.open(BytesIO(response.content)).convert("RGBA")
 
