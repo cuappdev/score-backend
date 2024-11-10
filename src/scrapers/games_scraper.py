@@ -90,6 +90,9 @@ def process_game_data(game_data):
     if curr_game:
         if curr_game.result != game_data["result"]:
             GameService.update_game(curr_game.id, {"result": game_data["result"]})
+        if curr_game.box_score != game_data["box_score"]:
+            GameService.update_game(curr_game.id, {"box_score": game_data["box_score"]})
+            GameService.update_game(curr_game.id, {"score_breakdown": game_data["score_breakdown"]})
         return
 
     game_data = {
