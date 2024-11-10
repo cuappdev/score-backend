@@ -4,8 +4,11 @@ IMAGE_PREFIX = "https://cornellbigred.com"
 # The tag for each game
 GAME_TAG = ".sidearm-schedule-game"
 
+# The tag for each opponent name with a
+OPPONENT_NAME_TAG_A = ".sidearm-schedule-game-opponent-name a"
+
 # The tag for each opponent name
-OPPONENT_NAME_TAG = ".sidearm-schedule-game-opponent-name a"
+OPPONENT_NAME_TAG = ".sidearm-schedule-game-opponent-name"
 
 # The tag for each opponent image
 OPPONENT_LOGO_TAG = ".sidearm-schedule-game-opponent-logo img"
