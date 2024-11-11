@@ -23,6 +23,11 @@ class TeamType(ObjectType):
 class ScoringSummaryType(ObjectType):
     """
     Represents a single scoring summary entry in a game.
+
+    Attributes:
+        - `time`: The time at which the scoring event occurred.
+        - `team`: The name of the team that scored.
+        - `description`: A description of the scoring event.
     """
     time = String()
     team = String()
@@ -31,16 +36,35 @@ class ScoringSummaryType(ObjectType):
 class BoxScoreEntryType(ObjectType):
     """
     Represents an individual entry in the box score of a game.
+
+    Attributes:
+        - `team`: The team involved in the scoring event.
+        - `period`: The period or inning of the event.
+        - `time`: The time of the scoring event.
+        - `description`: A description of the play or scoring event.
+        - `scorer`: The name of the scorer.
+        - `assist`: The name of the assisting player.
+        - `score_by`: Indicates which team scored.
+        - `cor_score`: Cornell's score at the time of the event.
+        - `opp_score`: Opponent's score at the time of the event.
     """
-    team = String(required=False)             
-    period = String(required=False)           
-    play_description = String(required=False) 
-    cor_score = Int(required=False)           
+    
+    team = String(required=False)
+    period = String(required=False)
+    time = String(required=False)
+    description = String(required=False)
+    scorer = String(required=False)
+    assist = String(required=False)
+    score_by = String(required=False)
+    cor_score = Int(required=False)
     opp_score = Int(required=False)
 
 class ScoreBreakdownType(ObjectType):
     """
     Represents the score breakdown for each period in a game.
+
+    Attributes:
+        - `scores`: A list of scores for each period of the game.
     """
     scores = List(String)
 

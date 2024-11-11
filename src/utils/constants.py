@@ -34,6 +34,44 @@ SCHEDULE_POSTFIX = "/schedule"
 # The tag for each result
 RESULT_TAG = ".sidearm-schedule-game-result"
 
+# HTML Tags
+TAG_TABLE = 'table'
+TAG_SECTION = 'section'
+TAG_TBODY = 'tbody'
+TAG_TR = 'tr'
+TAG_TD = 'td'
+TAG_TH = 'th'
+TAG_SPAN = 'span'
+TAG_IMG = 'img'
+
+# HTML Classes
+CLASS_SIDEARM_TABLE = 'sidearm-table'
+CLASS_HIDE_ON_LARGE_DOWN = 'hide-on-large-down'
+CLASS_HIDE_ON_SMALL_DOWN = 'hide-on-small-down'
+CLASS_SCORING_SUMMARY = 'scoring-summary'
+CLASS_OVERALL_STATS = 'overall-stats'
+CLASS_PLAY_BY_PLAY = 'play-by-play'
+CLASS_BOX_SCORE = 'box-score'
+
+# HTML Attributes
+ATTR_ARIA_LABEL = 'aria-label'
+ATTR_ALT = 'alt'
+ATTR_ID = 'id'
+
+# HTML IDs for Sections
+ID_BOX_SCORE = 'box-score'
+ID_PERIOD_1 = 'period-1'
+ID_PERIOD_2 = 'period-2'
+ID_SET_1 = 'set-1'
+ID_SET_2 = 'set-2'
+ID_SET_3 = 'set-3'
+ID_SET_4 = 'set-4'
+ID_SET_5 = 'set-5'
+
+# Labels
+LABEL_SCORING_SUMMARY = 'Scoring Summary'
+LABEL_CU = 'CU'
+
 # The dictionary mapping sports urls to gender
 SPORT_URLS = {
     "baseball": {"sport": "Baseball", "gender": "Mens"},

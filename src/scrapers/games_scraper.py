@@ -49,8 +49,12 @@ def parse_schedule_page(url, sport, gender):
         if box_score_tag:
             box_score_link = box_score_tag["href"]
             game_details = scrape_game(f"{BASE_URL}{box_score_link}", sport.lower())
-            game_data["box_score"] = game_details["scoring_summary"]
-            game_data["score_breakdown"] = game_details["scores"]
+            if game_details.get('error') == 'Sport parser not found':
+                game_data["box_score"] = None
+                game_data["score_breakdown"] = None
+            else:
+                game_data["box_score"] = game_details.get("scoring_summary")
+                game_data["score_breakdown"] = game_details.get("scores")
         else:
             game_data["box_score"] = None
             game_data["score_breakdown"] = None
