@@ -73,3 +73,30 @@ class GameRepository:
             }
         )
         return Game.from_dict(game_data) if game_data else None
+
+    @staticmethod
+    def find_by_sport(sport):
+        """
+        Retrieves all games from the MongoDB collection by its sport.
+        """
+        game_collection = db["game"]
+        games = game_collection.find({"sport": sport})
+        return [Game.from_dict(game) for game in games]
+
+    @staticmethod
+    def find_by_gender(gender):
+        """
+        Retrieve all games from the MongoDB collection by its gender.
+        """
+        game_collection = db["game"]
+        games = game_collection.find({"gender": gender})
+        return [Game.from_dict(game) for game in games]
+
+    @staticmethod
+    def find_by_sport_gender(sport, gender):
+        """
+        Retrieve all games from the MongoDB collection by its sport and gender.
+        """
+        game_collection = db["game"]
+        games = game_collection.find({"sport": sport, "gender": gender})
+        return [Game.from_dict(game) for game in games]

@@ -52,3 +52,24 @@ class GameService:
         return GameRepository.find_by_data(
             city, date, gender, location, opponent_id, sport, state, time
         )
+
+    @staticmethod
+    def get_games_by_sport(sport):
+        """
+        Retrieves all game by its sport.
+        """
+        return GameRepository.find_by_sport(sport)
+
+    @staticmethod
+    def get_games_by_gender(gender):
+        """
+        Retrieves all games by its gender.
+        """
+        return GameRepository.find_by_gender(gender)
+
+    @staticmethod
+    def get_games_by_sport_gender(sport, gender):
+        """
+        Retrieves all game by its sport and gender.
+        """
+        return GameRepository.find_by_sport_gender(sport, gender)
