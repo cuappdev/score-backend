@@ -30,7 +30,6 @@ class CreateGame(Mutation):
         result=None,
         time=None,
     ):
-        print("A")
         game_data = {
             "city": city,
             "date": date,
@@ -42,6 +41,5 @@ class CreateGame(Mutation):
             "state": state,
             "time": time,
         }
-        print(game_data["city"])
         new_game = GameService.create_game(game_data)
         return CreateGame(game=new_game)

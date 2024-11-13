@@ -4,8 +4,11 @@ IMAGE_PREFIX = "https://cornellbigred.com"
 # The tag for each game
 GAME_TAG = ".sidearm-schedule-game"
 
+# The tag for each opponent name with a
+OPPONENT_NAME_TAG_A = ".sidearm-schedule-game-opponent-name a"
+
 # The tag for each opponent name
-OPPONENT_NAME_TAG = ".sidearm-schedule-game-opponent-name a"
+OPPONENT_NAME_TAG = ".sidearm-schedule-game-opponent-name"
 
 # The tag for each opponent image
 OPPONENT_LOGO_TAG = ".sidearm-schedule-game-opponent-logo img"
@@ -69,3 +72,7 @@ SPORT_URLS = {
     "womens-track-and-field": {"sport": "Track & Field", "gender": "Womens"},
     "womens-volleyball": {"sport": "Volleyball", "gender": "Womens"},
 }
+
+IMAGE_BASE_URL = (
+    "https://dxbhsrqyrr690.cloudfront.net/sidearm.nextgen.sites/cornellbigred.com"
+)

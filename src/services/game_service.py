@@ -25,7 +25,6 @@ class GameService:
         """
         opponent_id = data.get("opponent_id")
         if not TeamService.get_team_by_id(opponent_id):
-            print(f"Opponent team with id {opponent_id} does not exist.")
             raise ValueError(f"Opponent team with id {opponent_id} does not exist.")
         game = Game(**data)
         GameRepository.insert(game)
@@ -53,3 +52,24 @@ class GameService:
         return GameRepository.find_by_data(
             city, date, gender, location, opponent_id, sport, state, time
         )
+
+    @staticmethod
+    def get_games_by_sport(sport):
+        """
+        Retrieves all game by its sport.
+        """
+        return GameRepository.find_by_sport(sport)
+
+    @staticmethod
+    def get_games_by_gender(gender):
+        """
+        Retrieves all games by its gender.
+        """
+        return GameRepository.find_by_gender(gender)
+
+    @staticmethod
+    def get_games_by_sport_gender(sport, gender):
+        """
+        Retrieves all game by its sport and gender.
+        """
+        return GameRepository.find_by_sport_gender(sport, gender)

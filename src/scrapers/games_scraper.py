@@ -2,15 +2,27 @@ import requests
 from bs4 import BeautifulSoup
 from src.services import GameService, TeamService
 from src.utils.constants import *
+from src.utils.helpers import get_dominant_color
 
 
 def fetch_game_schedule():
+    """
+    Scrape the game schedule from the given URLs and store the data in the database.
+    """
     for sport, data in SPORT_URLS.items():
         url = SCHEDULE_PREFIX + sport + SCHEDULE_POSTFIX
         parse_schedule_page(url, data["sport"], data["gender"])
 
 
 def parse_schedule_page(url, sport, gender):
+    """
+    Parse the game schedule page and store the data in the database.
+
+    Args:
+        url (str): The URL of the game schedule page.
+        sport (str): The sport of the games.
+        gender (str): The gender of the games.
+    """
     response = requests.get(url)
     soup = BeautifulSoup(response.content, "html.parser")
 
@@ -20,8 +32,12 @@ def parse_schedule_page(url, sport, gender):
         game_data["gender"] = gender
         game_data["sport"] = sport
 
-        opponent_name_tag = game_item.select_one(OPPONENT_NAME_TAG)
-        opponent_name = opponent_name_tag.text.strip() if opponent_name_tag else None
+        opponent_name_tag = game_item.select_one(OPPONENT_NAME_TAG_A)
+        opponent_name = (
+            opponent_name_tag.text.strip()
+            if opponent_name_tag
+            else game_item.select_one(OPPONENT_NAME_TAG).text.strip()
+        )
         game_data["opponent_name"] = opponent_name
 
         opponent_logo_tag = game_item.select_one(OPPONENT_LOGO_TAG)
@@ -50,6 +66,12 @@ def parse_schedule_page(url, sport, gender):
 
 
 def process_game_data(game_data):
+    """
+    Process the game data and store it in the database.
+
+    Args:
+        game_data (dict): A dictionary containing the game data.
+    """
     location_data = game_data["location"].split("\n")
     geo_location = location_data[0]
     if (",") not in geo_location:
@@ -61,8 +83,13 @@ def process_game_data(game_data):
 
     team = TeamService.get_team_by_name(game_data["opponent_name"])
     if not team:
+        color = (
+            get_dominant_color(game_data["opponent_logo"])
+            if game_data["opponent_logo"]
+            else "#FFFFFF"
+        )
         team_data = {
-            "color": "#000000",
+            "color": color,
             "image": game_data["opponent_logo"],
             "name": game_data["opponent_name"],
         }
@@ -96,8 +123,3 @@ def process_game_data(game_data):
     }
 
     GameService.create_game(game_data)
-
-
-# if __name__ == "__main__":
-#     url = "https://cornellbigred.com/sports/mens-basketball/schedule"
-#     scrape_game_schedule(url)

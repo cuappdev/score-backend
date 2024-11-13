@@ -3,14 +3,19 @@ from PIL import Image
 from io import BytesIO
 from collections import Counter
 
-BASE_URL = (
-    "https://dxbhsrqyrr690.cloudfront.net/sidearm.nextgen.sites/cornellbigred.com"
-)
 
+def get_dominant_color(image_url, white_threshold=200, black_threshold=50):
+    """
+    Get the hex code of the dominant color of an image.
 
-def get_dominant_color(relative_path, white_threshold=200, black_threshold=50):
-    image_url = f"{BASE_URL}{relative_path}"
+    Args:
+        image_url (str): The URL of the image.
+        white_threshold (int): The threshold for white pixels. (optional)
+        black_threshold (int): The threshold for black pixels. (optional)
 
+    Returns:
+        color: The hex code of the dominant color.
+    """
     response = requests.get(image_url)
     image = Image.open(BytesIO(response.content)).convert("RGBA")
 
@@ -39,10 +44,7 @@ def get_dominant_color(relative_path, white_threshold=200, black_threshold=50):
     else:
         dominant_color = (0, 0, 0)
 
-    return dominant_color
-
-
-dominant_color = get_dominant_color(
-    "/images/logos/Princeton_Tigers.png?width=80&height=80&mode=max"
-)
-print(f"Dominant color: {dominant_color}")
+    hex_color = "#{:02x}{:02x}{:02x}".format(
+        dominant_color[0], dominant_color[1], dominant_color[2]
+    )
+    return hex_color

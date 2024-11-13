@@ -4,3 +4,4 @@ graphene
 pymongo
 beautifulsoup4
 requests
+pillow
