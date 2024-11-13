@@ -187,8 +187,3 @@ def scrape_game(url, sport):
         }
     
     return {"error": "Sport parser not found"}
-
-
-# print(json.dumps(scrape_game('https://cornellbigred.com/sports/mens-ice-hockey/stats/2024-25/university-of-toronto/boxscore/59967', 'ice hockey'), indent=2))
-# print(json.dumps(scrape_game('https://cornellbigred.com/sports/mens-basketball/stats/2023-24/fordham-university/boxscore/59018', 'basketball'), indent=2))
-print(json.dumps(scrape_game('https://cornellbigred.com/sports/field-hockey/stats/2024/university-of-connecticut/boxscore/60538', 'field hockey'), indent=2))
