@@ -85,8 +85,6 @@ class GameType(ObjectType):
         - `box_score`: The box score of the game.
         - `score_breakdown`: The score breakdown of the game.
         - `time`: The time of the game. (optional)
-        - `box_score`: The box score of the game.
-        - `score_breakdown`: The score breakdown of the game.
     """
 
     id = String(required=False)
