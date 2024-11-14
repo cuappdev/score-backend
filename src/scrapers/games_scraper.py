@@ -2,8 +2,8 @@ import requests
 from bs4 import BeautifulSoup
 from src.services import GameService, TeamService
 from src.utils.constants import *
+from src.scrapers.game_details_scrape import scrape_game
 from src.utils.helpers import get_dominant_color
-
 
 def fetch_game_schedule():
     """
@@ -25,7 +25,6 @@ def parse_schedule_page(url, sport, gender):
     """
     response = requests.get(url)
     soup = BeautifulSoup(response.content, "html.parser")
-
     for game_item in soup.select(GAME_TAG):
         game_data = {}
 
@@ -45,7 +44,7 @@ def parse_schedule_page(url, sport, gender):
             opponent_logo_tag[OPPONENT_LOGO_URL_ATTR] if opponent_logo_tag else None
         )
         game_data["opponent_logo"] = (
-            IMAGE_PREFIX + opponent_logo if opponent_logo else None
+            BASE_URL + opponent_logo if opponent_logo else None
         )
 
         date_tag = game_item.select_one(DATE_TAG)
@@ -61,6 +60,20 @@ def parse_schedule_page(url, sport, gender):
             game_data["result"] = result_tag.text.strip().replace("\n", "")
         else:
             game_data["result"] = None
+            
+        box_score_tag = game_item.select_one(BOX_SCORE_TAG)
+        if box_score_tag:
+            box_score_link = box_score_tag["href"]
+            game_details = scrape_game(f"{BASE_URL}{box_score_link}", sport.lower())
+            if game_details.get('error') == 'Sport parser not found':
+                game_data["box_score"] = None
+                game_data["score_breakdown"] = None
+            else:
+                game_data["box_score"] = game_details.get("scoring_summary")
+                game_data["score_breakdown"] = game_details.get("scores")
+        else:
+            game_data["box_score"] = None
+            game_data["score_breakdown"] = None
 
         process_game_data(game_data)
 
@@ -108,6 +121,9 @@ def process_game_data(game_data):
     if curr_game:
         if curr_game.result != game_data["result"]:
             GameService.update_game(curr_game.id, {"result": game_data["result"]})
+        if curr_game.box_score != game_data["box_score"]:
+            GameService.update_game(curr_game.id, {"box_score": game_data["box_score"]})
+            GameService.update_game(curr_game.id, {"score_breakdown": game_data["score_breakdown"]})
         return
 
     game_data = {
@@ -120,6 +136,8 @@ def process_game_data(game_data):
         "sport": game_data["sport"],
         "state": state,
         "time": game_data["time"],
+        "box_score": game_data["box_score"],
+        "score_breakdown": game_data["score_breakdown"]
     }
 
     GameService.create_game(game_data)
