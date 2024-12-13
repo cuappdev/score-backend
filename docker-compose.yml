@@ -1,0 +1,19 @@
+version: "3.6"
+
+services:
+  web:
+    build: .
+    container_name: web
+    ports:
+      - "5000:5000"
+    env_file:
+      - .env
+    environment:
+      - MONGO_URI=${ATLAS_URI}
+      - DB_NAME=${DB_NAME}
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
