@@ -5,6 +5,7 @@ from flask_apscheduler import APScheduler
 from graphene import Schema
 from src.schema import Query, Mutation
 from src.scrapers.games_scraper import fetch_game_schedule
+from src.scrapers.youtube_stats import fetch_videos
 
 app = Flask(__name__)
 
@@ -20,7 +21,6 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
-
 schema = Schema(query=Query, mutation=Mutation)
 
 
@@ -35,8 +35,15 @@ def scrape_schedules():
 
     fetch_game_schedule()
 
+@scheduler.task("interval", id="scrape_schedules", seconds=43200)
+def scrape_videos():
+    logging.info("Scraping YouTube videos...")
 
-scrape_schedules()
+    fetch_videos()
+
+
+# scrape_schedules()
+scrape_videos()
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    app.run(debug=True, host="0.0.0.0", port=8000)
