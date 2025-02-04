@@ -120,3 +120,9 @@ SPORT_URLS = {
 IMAGE_BASE_URL = (
     "https://dxbhsrqyrr690.cloudfront.net/sidearm.nextgen.sites/cornellbigred.com"
 )
+
+# Cornell Sports YouTube Channel ID
+CHANNEL_ID = "UClSQOi2gnn9bi7mcgQrAVKA"
+
+# The maximum number of videos to retrieve
+VIDEO_LIMIT = 20

@@ -115,3 +115,26 @@ class GameType(ObjectType):
         self.time = time
         self.box_score = box_score
         self.score_breakdown = score_breakdown
+
+class YoutubeVideoType(ObjectType):
+    """
+    A GraphQL type representing a YouTube video.
+
+    Attributes:
+        - id: The YouTube video ID (optional).
+        - title: The title of the video.
+        - description: The description of the video.
+        - thumbnail: The URL of the video's thumbnail.
+        - url: The URL to the video.
+        - published_at: The date and time the video was published.
+    """
+    id = String(required=False)
+    title = String(required=True)
+    description = String(required=True)
+    thumbnail = String(required=True)
+    url = String(required=True)
+    published_at = String(required=True)
+
+    def __init__(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)

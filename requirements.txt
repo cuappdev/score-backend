@@ -6,3 +6,4 @@ beautifulsoup4
 requests
 pillow
 Flask-APScheduler
+python-dotenv
