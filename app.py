@@ -42,7 +42,7 @@ def scrape_videos():
     fetch_videos()
 
 
-# scrape_schedules()
+scrape_schedules()
 scrape_videos()
 
 if __name__ == "__main__":
