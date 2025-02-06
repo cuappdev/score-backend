@@ -28,6 +28,9 @@ app.add_url_rule(
     "/graphql", view_func=GraphQLView.as_view("graphql", schema=schema, graphiql=True)
 )
 
+@app.route("/")
+def hello_world():
+    return "Hello, World!"
 
 @scheduler.task("interval", id="scrape_schedules", seconds=3600)
 def scrape_schedules():
@@ -42,8 +45,8 @@ def scrape_videos():
     fetch_videos()
 
 
-scrape_schedules()
-scrape_videos()
+# scrape_schedules()
+# scrape_videos()
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=8000)
