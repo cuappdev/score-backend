@@ -6,3 +6,5 @@ services:
     env_file: .env
     ports:
       - "8000:80"
+    volumes:
+      - ./ca-certificate.crt:/etc/ssl/ca-certificate.crt:ro # Mount MongoDB cert inside the container, ro for read only
