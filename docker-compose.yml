@@ -5,4 +5,6 @@ services:
     image: cornellappdev/score-dev:${IMAGE_TAG}
     env_file: .env
     ports:
-      - "8000:80"
+      - "8000:8000"
+    volumes:
+      - ./ca-certificate.crt:/etc/ssl/ca-certificate.crt:ro # Mount MongoDB cert inside the container, ro for read only
