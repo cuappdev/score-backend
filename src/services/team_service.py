@@ -71,3 +71,16 @@ class TeamService:
             Team: The retrieved team.
         """
         return TeamRepository.find_by_name(name)
+
+    @staticmethod
+    def get_teams_by_ids(team_ids):
+        """
+        Retrieve teams by a list of IDs.
+
+        Args:
+            team_ids (list): The list of team IDs to retrieve.
+
+        Returns:
+            list: The list of retrieved teams.
+        """
+        return TeamRepository.find_by_ids(team_ids)
