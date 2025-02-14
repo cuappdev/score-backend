@@ -6,6 +6,7 @@ from graphene import Schema
 from src.schema import Query, Mutation
 from src.scrapers.games_scraper import fetch_game_schedule
 from src.scrapers.youtube_stats import fetch_videos
+from src.utils.parser import parse_cli
 
 app = Flask(__name__)
 
@@ -44,9 +45,6 @@ def scrape_videos():
 
     fetch_videos()
 
-
-scrape_schedules()
-scrape_videos()
-
 if __name__ == "__main__":
+    parse_cli()
     app.run(debug=True, host="0.0.0.0", port=8000)

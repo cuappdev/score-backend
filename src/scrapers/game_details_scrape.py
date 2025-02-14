@@ -2,9 +2,11 @@ import requests
 from bs4 import BeautifulSoup
 from src.utils.constants import *
 
+session = requests.Session()
+
 def fetch_page(url):
-    response = requests.get(url)
-    return BeautifulSoup(response.text, 'html.parser')
+    response = session.get(url)
+    return BeautifulSoup(response.text, "lxml")
 
 def extract_teams_and_scores(box_score_section, sport):
     score_table = box_score_section.find(TAG_TABLE, class_=CLASS_SIDEARM_TABLE)

@@ -5,11 +5,14 @@ from src.utils.constants import *
 from src.scrapers.game_details_scrape import scrape_game
 from src.utils.helpers import get_dominant_color
 
+session = requests.Session()
+
 def fetch_game_schedule():
     """
     Scrape the game schedule from the given URLs and store the data in the database.
     """
     for sport, data in SPORT_URLS.items():
+        print("Scraping data from" + sport)
         url = SCHEDULE_PREFIX + sport + SCHEDULE_POSTFIX
         parse_schedule_page(url, data["sport"], data["gender"])
 
@@ -23,8 +26,8 @@ def parse_schedule_page(url, sport, gender):
         sport (str): The sport of the games.
         gender (str): The gender of the games.
     """
-    response = requests.get(url)
-    soup = BeautifulSoup(response.content, "html.parser")
+    response = session.get(url)
+    soup = BeautifulSoup(response.content, "lxml")
     for game_item in soup.select(GAME_TAG):
         game_data = {}
 
