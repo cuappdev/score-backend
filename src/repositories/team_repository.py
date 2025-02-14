@@ -79,3 +79,18 @@ class TeamRepository:
         team_collection = db["team"]
         team_data = team_collection.find_one({"name": name})
         return Team.from_dict(team_data) if team_data else None
+
+    @staticmethod
+    def find_by_ids(team_ids):
+        """
+        Fetch a list of teams from the MongoDB collection by their IDs.
+
+        Args:
+            team_ids (List[str]): The IDs of the teams to retrieve.
+
+        Returns:
+            List[Team]: The retrieved teams.
+        """
+        team_collection = db["team"]
+        team_data = team_collection.find({"_id": {"$in": team_ids}})
+        return [Team.from_dict(team) for team in team_data]

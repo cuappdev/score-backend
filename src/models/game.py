@@ -33,7 +33,8 @@ class Game:
         result=None,
         time=None,
         box_score=None,
-        score_breakdown=None
+        score_breakdown=None,
+        team=None
     ):
         self.id = id if id else str(ObjectId())
         self.city = city
@@ -47,6 +48,7 @@ class Game:
         self.time = time
         self.box_score = box_score
         self.score_breakdown = score_breakdown
+        self.team = team
 
     def to_dict(self):
         """
@@ -64,7 +66,8 @@ class Game:
             "state": self.state,
             "time": self.time,
             "box_score": self.box_score,
-            "score_breakdown": self.score_breakdown
+            "score_breakdown": self.score_breakdown,
+            "team": self.team
         }
 
     @staticmethod
@@ -84,5 +87,6 @@ class Game:
             state=data.get("state"),
             time=data.get("time"),
             box_score=data.get("box_score"),
-            score_breakdown=data.get("score_breakdown")
+            score_breakdown=data.get("score_breakdown"),
+            team=data.get("team")
         )
