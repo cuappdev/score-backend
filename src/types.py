@@ -1,4 +1,5 @@
-from graphene import ObjectType, String, List, Int
+from graphene import ObjectType, Field, String, List, Int
+from src.services import TeamService
 
 class TeamType(ObjectType):
     """
@@ -99,6 +100,7 @@ class GameType(ObjectType):
     time = String(required=False)
     box_score = List(BoxScoreEntryType, required=False)
     score_breakdown = List(List(String), required=False)
+    team = Field(TeamType, required=False)
 
     def __init__(
         self, id, city, date, gender, location, opponent_id, result, sport, state, time, box_score=None, score_breakdown=None
@@ -115,6 +117,26 @@ class GameType(ObjectType):
         self.time = time
         self.box_score = box_score
         self.score_breakdown = score_breakdown
+    
+    @staticmethod
+    def team_to_team_type(team_obj):
+        if team_obj is None:
+            return None
+        return TeamType(
+            id=str(team_obj.id),
+            color=team_obj.color,
+            image=team_obj.image,
+            name=team_obj.name
+        )
+
+    def resolve_team(parent, info):
+        # getting team id - team could be None in older data
+        team_id = parent.team if parent.team is not None else parent.opponent_id
+        if team_id and isinstance(team_id, str):
+            # promise to get team object once the dataloader is ready
+            promise = info.context["team_loader"].load(team_id)
+            return promise.then(GameType.team_to_team_type)
+        return None
 
 class YoutubeVideoType(ObjectType):
     """
