@@ -132,6 +132,7 @@ class YoutubeVideoType(ObjectType):
     title = String(required=True)
     description = String(required=True)
     thumbnail = String(required=True)
+    b64_thumbnail = String(required=True)
     url = String(required=True)
     published_at = String(required=True)
 
