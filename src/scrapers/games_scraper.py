@@ -1,9 +1,40 @@
+import re
+from datetime import datetime
 import requests
 from bs4 import BeautifulSoup
 from src.services import GameService, TeamService
 from src.utils.constants import *
 from src.scrapers.game_details_scrape import scrape_game
 from src.utils.helpers import get_dominant_color
+
+def extract_season_years(page_title):
+    """
+    Extracts season years from page title
+    If title is across years like '2024-25', it returns (first_year, second_year)
+    If single year, returns (year, None).
+    """
+    match = re.search(r"(\d{4})(?:-(\d{2}))?", page_title)
+    if match:
+        first_year = match.group(1)
+        second_year = None
+        if match.group(2):
+            second_year = first_year[:2] + match.group(2)
+        return first_year, second_year
+    return None, None
+
+def infer_game_year(date_text, season_years):
+    """
+    Determines the calendar year for a game based on month
+    August to December belong to the first year
+    """
+    first_year, second_year = season_years
+    month_abbr = date_text[:3]
+    if second_year:
+        if month_abbr in ("Aug", "Sep", "Oct", "Nov", "Dec"):
+            return first_year
+        else:
+            return second_year
+    return first_year
 
 def fetch_game_schedule():
     """
@@ -13,13 +44,12 @@ def fetch_game_schedule():
         url = SCHEDULE_PREFIX + sport + SCHEDULE_POSTFIX
         parse_schedule_page(url, data["sport"], data["gender"])
 
-
 def parse_schedule_page(url, sport, gender):
     response = requests.get(url)
     soup = BeautifulSoup(response.content, "html.parser")
 
-    season_option = soup.select_one('#sidearm-schedule-select-season option[data-current="1"]')
-    season_text = season_option.text.strip() if season_option else ""
+    page_title = soup.title.text.strip() if soup.title else ""
+    season_years = extract_season_years(page_title)
 
     for game_item in soup.select(GAME_TAG):
         game_data = {}
@@ -43,13 +73,19 @@ def parse_schedule_page(url, sport, gender):
         )
 
         date_tag = game_item.select_one(DATE_TAG)
+        if date_tag:
+            date_text = date_tag.get_text(strip=True)
+        else:
+            date_text = ""
+
         time_tag = game_item.select_one(TIME_TAG)
+        
+        game_year = infer_game_year(date_text, season_years)
+        if date_text and game_year:
+            game_data["date"] = f"{date_text} {game_year}"
+        else:
+            game_data["date"] = date_text
 
-        date_text = date_tag.text.strip() if date_tag else ""
-        if date_text and season_text:
-            date_text = f"{date_text} ({season_text})"
-
-        game_data["date"] = date_text
         game_data["time"] = time_tag.text.strip() if time_tag else None
 
         location_tag = game_item.select_one(LOCATION_TAG)
