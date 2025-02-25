@@ -4,7 +4,16 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-file_name = "ca-certificate.crt" if os.getenv("STAGE") == "local" else "/etc/ssl/ca-certificate.crt"
+if os.getenv("STAGE") == "local":
+  file_name = "ca-certificate.crt"
+  use_tls = os.getenv("MONGO_URI") != "mongodb://localhost:27017/"
+else:
+  file_name = "/etc/ssl/ca-certificate.crt"
+  use_tls = True
 
-client = MongoClient(os.getenv("MONGO_URI"), tls=True, tlsCAFile=file_name)
-db = client[os.getenv("MONGO_DB")]
+if use_tls:
+    client = MongoClient(os.getenv("MONGO_URI"), tls=True, tlsCAFile=file_name)
+else:
+    client = MongoClient(os.getenv("MONGO_URI"))
+
+db = client[os.getenv("MONGO_DB", "score_db")]
