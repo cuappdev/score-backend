@@ -15,19 +15,14 @@ def fetch_game_schedule():
 
 
 def parse_schedule_page(url, sport, gender):
-    """
-    Parse the game schedule page and store the data in the database.
-
-    Args:
-        url (str): The URL of the game schedule page.
-        sport (str): The sport of the games.
-        gender (str): The gender of the games.
-    """
     response = requests.get(url)
     soup = BeautifulSoup(response.content, "html.parser")
+
+    season_option = soup.select_one('#sidearm-schedule-select-season option[data-current="1"]')
+    season_text = season_option.text.strip() if season_option else ""
+
     for game_item in soup.select(GAME_TAG):
         game_data = {}
-
         game_data["gender"] = gender
         game_data["sport"] = sport
 
@@ -49,7 +44,12 @@ def parse_schedule_page(url, sport, gender):
 
         date_tag = game_item.select_one(DATE_TAG)
         time_tag = game_item.select_one(TIME_TAG)
-        game_data["date"] = date_tag.text.strip() if date_tag else None
+
+        date_text = date_tag.text.strip() if date_tag else ""
+        if date_text and season_text:
+            date_text = f"{date_text} ({season_text})"
+
+        game_data["date"] = date_text
         game_data["time"] = time_tag.text.strip() if time_tag else None
 
         location_tag = game_item.select_one(LOCATION_TAG)
