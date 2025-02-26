@@ -27,6 +27,7 @@ class YoutubeVideoService:
             title=data.get("title"),
             description=data.get("description"),
             thumbnail=data.get("thumbnail"),
+            b64_thumbnail=data.get("b64_thumbnail"),
             url=data.get("url"),
             published_at=data.get("published_at"),
         )

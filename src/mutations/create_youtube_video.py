@@ -8,6 +8,7 @@ class CreateYoutubeVideo(Mutation):
         title = String(required=True)
         description = String(required=True)
         thumbnail = String(required=True)
+        b64_thumbnail = String(required=True)
         url = String(required=True)
         published_at = String(required=True)
 
@@ -19,6 +20,7 @@ class CreateYoutubeVideo(Mutation):
             "title": title,
             "description": description,
             "thumbnail": thumbnail,
+            "b64_thumbnail": b64_thumbnail,
             "url": url,
             "published_at": published_at,
         }

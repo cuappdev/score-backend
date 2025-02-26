@@ -15,11 +15,12 @@ class YoutubeVideo:
         - `published_at`    The date and time the video was published.
     """
 
-    def __init__(self, title, description, thumbnail, url, published_at, id=None):
+    def __init__(self, title, description, thumbnail, b64_thumbnail, url, published_at, id=None):
         self.id = id if id else str(ObjectId())
         self.title = title
         self.description = description
         self.thumbnail = thumbnail
+        self.b64_thumbnail = b64_thumbnail
         self.url = url
         self.published_at = published_at
 
@@ -32,6 +33,7 @@ class YoutubeVideo:
             "title": self.title,
             "description": self.description,
             "thumbnail": self.thumbnail,
+            "b64_thumbnail": self.b64_thumbnail,
             "url": self.url,
             "published_at": self.published_at,
         }
@@ -46,6 +48,7 @@ class YoutubeVideo:
             title=data.get("title"),
             description=data.get("description"),
             thumbnail=data.get("thumbnail"),
+            b64_thumbnail=data.get("b64_thumbnail"),
             url=data.get("url"),
             published_at=data.get("published_at"),
         )

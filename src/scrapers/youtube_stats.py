@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from src.models.youtube_video import YoutubeVideo
 from src.services.youtube_video_service import YoutubeVideoService
 from src.database import db
+import base64
 import os
 import html
 
@@ -40,6 +41,15 @@ def process_video_item(item):
     # if high quality thumbnail is not available, use the default thumbnail
     if not thumbnail:
         thumbnail = snippet.get("thumbnails", {}).get("default", {}).get("url")
+
+    encoded_thumbnail = None
+    if thumbnail:
+        try:
+            response = requests.get(thumbnail)
+            response.raise_for_status()
+            encoded_thumbnail = base64.b64encode(response.content).decode('utf-8')
+        except Exception as e:
+            print(f"Error fetching thumbnail: {e}")
     
     published_at = snippet.get("publishedAt")
     video_url = f"https://www.youtube.com/watch?v={video_id}"
@@ -49,6 +59,7 @@ def process_video_item(item):
         "title": title,
         "description": description,
         "thumbnail": thumbnail,
+        "b64_thumbnail": encoded_thumbnail,
         "url": video_url,
         "published_at": published_at,
     }
