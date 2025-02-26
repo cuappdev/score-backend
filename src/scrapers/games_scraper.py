@@ -47,6 +47,13 @@ def fetch_game_schedule():
         parse_schedule_page(url, data["sport"], data["gender"])
 
 def parse_schedule_page(url, sport, gender):
+    """
+    Parse the game schedule page and store the data in the database.
+    Args:
+        url (str): The URL of the game schedule page.
+        sport (str): The sport of the games.
+        gender (str): The gender of the games.
+    """
     response = requests.get(url)
     soup = BeautifulSoup(response.content, "html.parser")
 
