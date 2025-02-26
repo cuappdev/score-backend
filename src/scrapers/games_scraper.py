@@ -6,6 +6,8 @@ from src.services import GameService, TeamService
 from src.utils.constants import *
 from src.scrapers.game_details_scrape import scrape_game
 from src.utils.helpers import get_dominant_color
+import base64
+import html
 
 def extract_season_years(page_title):
     """
@@ -137,9 +139,18 @@ def process_game_data(game_data):
             if game_data["opponent_logo"]
             else "#FFFFFF"
         )
+        encoded_opponent_logo = ""
+        if game_data["opponent_logo"]:
+            try:
+                response = requests.get(game_data["opponent_logo"])
+                response.raise_for_status()
+                encoded_opponent_logo = base64.b64encode(response.content).decode('utf-8')
+            except Exception as e:
+                print(f"Error fetching encoded opponent logo: {e}")
         team_data = {
             "color": color,
             "image": game_data["opponent_logo"],
+            "b64_image": encoded_opponent_logo,
             "name": game_data["opponent_name"],
         }
         team = TeamService.create_team(team_data)
