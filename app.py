@@ -8,13 +8,13 @@ from src.schema import Query, Mutation
 from src.scrapers.games_scraper import fetch_game_schedule
 from src.scrapers.youtube_stats import fetch_videos
 from src.utils.team_loader import TeamLoader
+import time
 
 app = Flask(__name__)
 
 # Set up the scheduler
 scheduler = APScheduler()
 scheduler.init_app(app)
-scheduler.start()
 
 # Configure logging
 logging.basicConfig(
@@ -46,11 +46,16 @@ def parse_args():
 
 args = parse_args()
 if not args.no_scrape:
-    @scheduler.task("interval", id="scrape_schedules", seconds=3600)
+    # scrapes games every 5 minutes. 
+    # need testing to see if this can be lower safely
+    @scheduler.task("interval", id="scrape_schedules", seconds=300)
 
     def scrape_schedules():
-        logging.info("Scraping game schedules...")
+        start_time = time.time()
+        logging.info("Starting game schedule scraping...")
         fetch_game_schedule()
+        elapsed_time = time.time() - start_time
+        logging.info(f"Completed game schedule scraping in {elapsed_time:.2f} seconds")
 
     @scheduler.task("interval", id="scrape_schedules", seconds=43200)
     def scrape_videos():

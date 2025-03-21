@@ -57,11 +57,9 @@ def fetch_game_schedule():
         )
         threads.append(thread)
         thread.start()
-        print(f"Started thread for {data['sport']} ({data['gender']})")
     
     for thread in threads:
         thread.join()
-        print(f"Completed thread: {thread.name}")
 
 def parse_schedule_page(url, sport, gender):
     """
@@ -75,9 +73,7 @@ def parse_schedule_page(url, sport, gender):
     soup = BeautifulSoup(response.content, "html.parser")
 
     page_title = soup.title.text.strip() if soup.title else ""
-    print(page_title)
     season_years = extract_season_years(page_title)
-    print(season_years)
 
     for game_item in soup.select(GAME_TAG):
         game_data = {}
