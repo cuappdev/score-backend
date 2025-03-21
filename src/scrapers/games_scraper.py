@@ -194,4 +194,9 @@ def process_game_data(game_data):
         "score_breakdown": game_data["score_breakdown"]
     }
 
+    # make sure cornell is first in score breakdown - switch order on home games
+    if game_data["score_breakdown"]:
+        if city == "Ithaca":
+            game_data["score_breakdown"] = game_data["score_breakdown"][::-1]
+        
     GameService.create_game(game_data)
