@@ -8,6 +8,7 @@ from src.scrapers.game_details_scrape import scrape_game
 from src.utils.helpers import get_dominant_color
 import base64
 import html
+import threading
 
 def extract_season_years(page_title):
     """
@@ -40,11 +41,27 @@ def infer_game_year(date_text, season_years):
 
 def fetch_game_schedule():
     """
-    Scrape the game schedule from the given URLs and store the data in the database.
+    Scrape the game schedule from the given URLs in parallel using threads.
+    Each sport is scraped in its own thread for improved performance.
     """
+    threads = []
+    
     for sport, data in SPORT_URLS.items():
         url = SCHEDULE_PREFIX + sport + SCHEDULE_POSTFIX
-        parse_schedule_page(url, data["sport"], data["gender"])
+
+        # create thread for each sport
+        thread = threading.Thread(
+            target=parse_schedule_page,
+            args=(url, data["sport"], data["gender"]),
+            name=f"Scraper-{sport}"
+        )
+        threads.append(thread)
+        thread.start()
+        print(f"Started thread for {data['sport']} ({data['gender']})")
+    
+    for thread in threads:
+        thread.join()
+        print(f"Completed thread: {thread.name}")
 
 def parse_schedule_page(url, sport, gender):
     """
@@ -58,7 +75,9 @@ def parse_schedule_page(url, sport, gender):
     soup = BeautifulSoup(response.content, "html.parser")
 
     page_title = soup.title.text.strip() if soup.title else ""
+    print(page_title)
     season_years = extract_season_years(page_title)
+    print(season_years)
 
     for game_item in soup.select(GAME_TAG):
         game_data = {}
