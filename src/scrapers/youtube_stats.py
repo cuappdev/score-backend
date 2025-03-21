@@ -10,6 +10,31 @@ import html
 
 load_dotenv()
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
+UPLOAD_URL = os.getenv("UPLOAD_URL")
+DEV_BUCKET = os.getenv("DEV_BUCKET")
+PROD_BUCKET = os.getenv("PROD_BUCKET")
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+
+def upload_image_to_bucket(image_b64: str) -> str:
+    """
+    Uploads a b64 image to the configured bucket and returns the URL of the uploaded image.
+    """
+    if ENVIRONMENT.lower() == "development":
+        bucket = DEV_BUCKET
+    else:
+        bucket = PROD_BUCKET
+    payload = {
+         "bucket": bucket,
+         "image": image_b64,
+    }
+    try:
+        response = requests.post(UPLOAD_URL, data=payload)
+        response.raise_for_status()
+        data = response.json()
+        return data.get("url")
+    except Exception as e:
+        print(f"Error uploading image: {e}")
+        raise
 
 def fetch_videos():
     """
@@ -42,14 +67,15 @@ def process_video_item(item):
     if not thumbnail:
         thumbnail = snippet.get("thumbnails", {}).get("default", {}).get("url")
 
-    encoded_thumbnail = None
+    uploaded_thumbnail_url = None  
     if thumbnail:
         try:
-            response = requests.get(thumbnail)
-            response.raise_for_status()
-            encoded_thumbnail = base64.b64encode(response.content).decode('utf-8')
+            thumb_response = requests.get(thumbnail)
+            thumb_response.raise_for_status()
+            encoded_thumbnail = base64.b64encode(thumb_response.content).decode('utf-8')
+            uploaded_thumbnail_url = upload_image_to_bucket(encoded_thumbnail)
         except Exception as e:
-            print(f"Error fetching thumbnail: {e}")
+            print(f"Error processing thumbnail: {e}")
     
     published_at = snippet.get("publishedAt")
     video_url = f"https://www.youtube.com/watch?v={video_id}"
