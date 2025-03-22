@@ -55,6 +55,7 @@ def convert_to_utc(date_str, time_str, eastern_tz=pytz.timezone('US/Eastern')):
         if standardized_time:
             datetime_str = f"{date_str} {standardized_time}"
 
+            # sometimes written in different formats
             for fmt in ["%b %d %Y %I:%M %p", "%B %d %Y %I:%M %p", "%b. %d %Y %I:%M %p"]:
                 try:
                     local_dt = eastern_tz.localize(datetime.strptime(datetime_str, fmt))
