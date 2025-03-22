@@ -12,25 +12,17 @@ import pytz
 
 def parse_time_string(time_str):
     """
-    Parse various time formats into a standardized format.
-    
-    Args:
-        time_str (str): Time string in various formats like "12:00 PM", "12:00 p.m.", etc.
-        
-    Returns:
-        str: Standardized time string in format "HH:MM AM/PM"
+    Parse time into a standardized format (e.g. 12:01 AM)
     """
     if not time_str:
         return None
         
-    # Remove extra spaces and lowercase
     time_str = time_str.strip().lower()
     
-    # Handle various time formats
+    # sometimes written as p.m.
     time_str = time_str.replace("p.m.", "pm").replace("a.m.", "am")
-    time_str = time_str.replace("p. m.", "pm").replace("a. m.", "am")
     
-    # Extract hours, minutes, and AM/PM
+    # extract hours, minutes, and AM/PM
     time_pattern = re.compile(r'(\d{1,2}):?(\d{2})?\s*(am|pm)?')
     match = time_pattern.search(time_str)
     
@@ -39,46 +31,38 @@ def parse_time_string(time_str):
         
     hours = match.group(1)
     minutes = match.group(2) or "00"
-    am_pm = match.group(3) or "am"  # Default to AM if not specified
+    
+    # default to pm if not specified
+    am_pm = match.group(3) or "pm" 
     
     return f"{hours}:{minutes} {am_pm.upper()}"
 
 def convert_to_utc(date_str, time_str, eastern_tz=pytz.timezone('US/Eastern')):
     """
-    Convert date and time strings to UTC datetime.
-    
-    Args:
-        date_str (str): Date string like "Aug 31 (Sat) 2024"
-        time_str (str): Time string like "12:00 PM"
-        eastern_tz: Eastern timezone object (Cornell is in Eastern Time)
-        
-    Returns:
-        datetime: UTC datetime object or None if parsing fails
+    Convert date and time strings to UTC datetime. 
+    e.g. date_str: "Aug 31 (Sat) 2024"
+         time_str: "12:00 PM"
     """
     if not date_str:
         return None
         
     try:
-        # Clean up date string - remove day of week in parentheses
+        # remove day of week in parentheses
         date_str = re.sub(r'\([^)]*\)', '', date_str).strip()
         
-        # Parse the standardized time
         standardized_time = parse_time_string(time_str)
         
         if standardized_time:
-            # Combine date and time
             datetime_str = f"{date_str} {standardized_time}"
-            # Try different date formats
+
             for fmt in ["%b %d %Y %I:%M %p", "%B %d %Y %I:%M %p", "%b. %d %Y %I:%M %p"]:
                 try:
-                    # Parse as Eastern Time
                     local_dt = eastern_tz.localize(datetime.strptime(datetime_str, fmt))
-                    # Convert to UTC
                     return local_dt.astimezone(timezone.utc)
                 except ValueError:
                     continue
         
-        # If time parsing fails, just use the date at midnight
+        # default to midnight
         for fmt in ["%b %d %Y", "%B %d %Y", "%b. %d %Y"]:
             try:
                 local_dt = eastern_tz.localize(datetime.strptime(date_str, fmt).replace(hour=0, minute=0))
@@ -173,11 +157,11 @@ def parse_schedule_page(url, sport, gender):
         time_text = time_tag.text.strip() if time_tag else None
         
         game_year = infer_game_year(date_text, season_years)
+
+        # keep old date field for now
         if date_text and game_year:
             full_date_text = f"{date_text} {game_year}"
-            # Store the formatted date string for lookup purposes
             game_data["date"] = full_date_text
-            # Also store UTC datetime
             game_data["utc_date"] = convert_to_utc(full_date_text, time_text)
         else:
             game_data["date"] = date_text
@@ -250,7 +234,7 @@ def process_game_data(game_data):
         }
         team = TeamService.create_team(team_data)
 
-    # Format the UTC date as ISO string if it exists
+    # ISO format
     utc_date_str = game_data["utc_date"].isoformat() if game_data["utc_date"] else None
 
     curr_game = GameService.get_game_by_data(
@@ -273,7 +257,7 @@ def process_game_data(game_data):
             GameService.update_game(curr_game.id, {"utc_date": utc_date_str})
         return
 
-    game_data_for_db = {
+    game_data = {
         "city": city,
         "date": game_data["date"],
         "gender": game_data["gender"],
@@ -289,8 +273,8 @@ def process_game_data(game_data):
     }
 
     # make sure cornell is first in score breakdown - switch order on home games
-    if game_data_for_db["score_breakdown"]:
+    if game_data["score_breakdown"]:
         if city == "Ithaca":
-            game_data_for_db["score_breakdown"] = game_data_for_db["score_breakdown"][::-1]
+            game_data["score_breakdown"] = game_data["score_breakdown"][::-1]
         
-    GameService.create_game(game_data_for_db)
+    GameService.create_game(game_data)
