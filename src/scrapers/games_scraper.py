@@ -55,6 +55,7 @@ def fetch_game_schedule():
             args=(url, data["sport"], data["gender"]),
             name=f"Scraper-{sport}"
         )
+        thread.daemon = True
         threads.append(thread)
         thread.start()
     
