@@ -22,4 +22,6 @@ To start the project, run the following command in the terminal
 
 ## Setting up the database
 
+Create a Mongo database named `score_db` and another named `daily_sun_db`. A partnership with the Daily Sun has given us access to their articles which we copy and paginate the results for frontend.
+
 Add /graphql to the url to access the interactive GraphQL platform
