@@ -1,5 +1,5 @@
 from graphene import ObjectType, Field, String, List, Int
-from src.services import TeamService
+from datetime import datetime
 
 class TeamType(ObjectType):
     """
@@ -160,3 +160,28 @@ class YoutubeVideoType(ObjectType):
     def __init__(self, **kwargs):
         for key, value in kwargs.items():
             setattr(self, key, value)
+
+class ArticleType(ObjectType):
+    """
+    A GraphQL type representing a news article.
+
+    Attributes:
+        - title: The title of the article
+        - image: The filename of the article's main image
+        - sports_type: The specific sport category
+        - published_at: The publication date
+        - url: The URL to the full article
+    """
+    id = String()
+    title = String(required=True)
+    image = String()
+    sports_type = String(required=True)
+    published_at = String(required=True)
+    url = String(required=True)
+
+    def __init__(self, **kwargs):
+        for key, value in kwargs.items():
+            if key == "published_at" and isinstance(value, datetime):
+                setattr(self, key, value.isoformat())
+            else:
+                setattr(self, key, value)
