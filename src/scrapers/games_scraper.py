@@ -8,6 +8,7 @@ from src.utils.helpers import get_dominant_color
 import base64
 import re
 import html
+import threading
 
 
 def extract_season_years(page_title):
@@ -41,11 +42,26 @@ def infer_game_year(date_text, season_years):
 
 def fetch_game_schedule():
     """
-    Scrape the game schedule from the given URLs and store the data in the database.
+    Scrape the game schedule from the given URLs in parallel using threads.
+    Each sport is scraped in its own thread for improved performance.
     """
+    threads = []
+    
     for sport, data in SPORT_URLS.items():
         url = SCHEDULE_PREFIX + sport + SCHEDULE_POSTFIX
-        parse_schedule_page(url, data["sport"], data["gender"])
+
+        # create thread for each sport
+        thread = threading.Thread(
+            target=parse_schedule_page,
+            args=(url, data["sport"], data["gender"]),
+            name=f"Scraper-{sport}"
+        )
+        thread.daemon = True
+        threads.append(thread)
+        thread.start()
+    
+    for thread in threads:
+        thread.join()
 
 def parse_schedule_page(url, sport, gender):
     """

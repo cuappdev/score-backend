@@ -8,13 +8,16 @@ from src.schema import Query, Mutation
 from src.scrapers.games_scraper import fetch_game_schedule
 from src.scrapers.youtube_stats import fetch_videos
 from src.utils.team_loader import TeamLoader
+import time
+import os
+import signal
+import sys
 
 app = Flask(__name__)
 
 # Set up the scheduler
 scheduler = APScheduler()
 scheduler.init_app(app)
-scheduler.start()
 
 # Configure logging
 logging.basicConfig(
@@ -44,21 +47,42 @@ def parse_args():
     )
     return parser.parse_args()
 
-args = parse_args()
-if not args.no_scrape:
-    @scheduler.task("interval", id="scrape_schedules", seconds=3600)
 
-    def scrape_schedules():
-        logging.info("Scraping game schedules...")
-        fetch_game_schedule()
+def signal_handler(sig, frame):
+    """Handle Ctrl+C by shutting down scheduler and exiting"""
+    scheduler.shutdown()
+    sys.exit(0)
 
-    @scheduler.task("interval", id="scrape_schedules", seconds=43200)
-    def scrape_videos():
-        logging.info("Scraping YouTube videos...")
-        fetch_videos()
-
-    scrape_schedules()
-    scrape_videos()
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=8000)
+    args = parse_args()
+    
+    if not args.no_scrape:
+        # scrapes games every 5 minutes. 
+        # need testing to see if this can be lower safely
+        @scheduler.task("interval", id="scrape_schedules", seconds=300)
+        def scrape_schedules():
+            start_time = time.time()
+            logging.info("Starting scraping games")
+            fetch_game_schedule()
+            elapsed_time = time.time() - start_time
+            logging.info(f"Completed scraping games in {elapsed_time:.2f} seconds")
+
+        @scheduler.task("interval", id="scrape_videos", seconds=43200)
+        def scrape_videos():
+            logging.info("Scraping YouTube videos")
+            fetch_videos()
+        
+        scheduler.start()
+        
+        scrape_schedules()
+        scrape_videos()
+
+
+    try:
+        app.run(debug=True, host="0.0.0.0", port=8000)
+    except KeyboardInterrupt:
+        scheduler.shutdown()
+        sys.exit(0)
