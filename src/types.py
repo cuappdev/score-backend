@@ -103,9 +103,10 @@ class GameType(ObjectType):
     box_score = List(BoxScoreEntryType, required=False)
     score_breakdown = List(List(String), required=False)
     team = Field(TeamType, required=False)
+    utc_date = String(required=False)
 
     def __init__(
-        self, id, city, date, gender, location, opponent_id, result, sport, state, time, box_score=None, score_breakdown=None
+        self, id, city, date, gender, location, opponent_id, result, sport, state, time, box_score=None, score_breakdown=None, utc_date=None
     ):
         self.id = id
         self.city = city
@@ -119,6 +120,7 @@ class GameType(ObjectType):
         self.time = time
         self.box_score = box_score
         self.score_breakdown = score_breakdown
+        self.utc_date = utc_date
     
     @staticmethod
     def team_to_team_type(team_obj):

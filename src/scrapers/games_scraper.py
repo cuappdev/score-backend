@@ -1,14 +1,15 @@
-import re
-from datetime import datetime
 import requests
 from bs4 import BeautifulSoup
 from src.services import GameService, TeamService
+from src.utils.convert_to_utc import convert_to_utc
 from src.utils.constants import *
 from src.scrapers.game_details_scrape import scrape_game
 from src.utils.helpers import get_dominant_color
 import base64
+import re
 import html
 import threading
+
 
 def extract_season_years(page_title):
     """
@@ -104,14 +105,20 @@ def parse_schedule_page(url, sport, gender):
             date_text = ""
 
         time_tag = game_item.select_one(TIME_TAG)
+        time_text = time_tag.text.strip() if time_tag else None
         
         game_year = infer_game_year(date_text, season_years)
+
+        # keep old date field for now
         if date_text and game_year:
-            game_data["date"] = f"{date_text} {game_year}"
+            full_date_text = f"{date_text} {game_year}"
+            game_data["date"] = full_date_text
+            game_data["utc_date"] = convert_to_utc(full_date_text, time_text)
         else:
             game_data["date"] = date_text
+            game_data["utc_date"] = None
 
-        game_data["time"] = time_tag.text.strip() if time_tag else None
+        game_data["time"] = time_text
 
         location_tag = game_item.select_one(LOCATION_TAG)
         game_data["location"] = location_tag.text.strip() if location_tag else None
@@ -178,6 +185,9 @@ def process_game_data(game_data):
         }
         team = TeamService.create_team(team_data)
 
+    # ISO format
+    utc_date_str = game_data["utc_date"].isoformat() if game_data["utc_date"] else None
+
     curr_game = GameService.get_game_by_data(
         city,
         game_data["date"],
@@ -194,6 +204,8 @@ def process_game_data(game_data):
         if curr_game.box_score != game_data["box_score"]:
             GameService.update_game(curr_game.id, {"box_score": game_data["box_score"]})
             GameService.update_game(curr_game.id, {"score_breakdown": game_data["score_breakdown"]})
+        if utc_date_str:
+            GameService.update_game(curr_game.id, {"utc_date": utc_date_str})
         return
 
     game_data = {
@@ -207,7 +219,13 @@ def process_game_data(game_data):
         "state": state,
         "time": game_data["time"],
         "box_score": game_data["box_score"],
-        "score_breakdown": game_data["score_breakdown"]
+        "score_breakdown": game_data["score_breakdown"],
+        "utc_date": utc_date_str
     }
 
+    # make sure cornell is first in score breakdown - switch order on home games
+    if game_data["score_breakdown"]:
+        if city == "Ithaca":
+            game_data["score_breakdown"] = game_data["score_breakdown"][::-1]
+        
     GameService.create_game(game_data)

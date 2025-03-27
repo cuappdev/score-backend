@@ -32,12 +32,26 @@ def soccer_summary(box_score_section):
     if scoring_section:
         scoring_rows = scoring_section.find(TAG_TBODY)
         if scoring_rows:
+            cornell_score = 0
+            opp_score = 0
             for row in scoring_rows.find_all(TAG_TR):
                 time = row.find_all(TAG_TD)[0].text.strip()
                 team = row.find_all(TAG_TD)[1].find(TAG_IMG)[ATTR_ALT]
                 event = row.find_all(TAG_TD)[2]
                 desc = event.find_all(TAG_SPAN)[-1].text.strip()
-                summary.append({'time': time, 'team': team, 'description': desc})
+                
+                if team == "COR" or team == "CU":
+                    cornell_score += 1
+                else:
+                    opp_score += 1
+                    
+                summary.append({
+                    'time': time, 
+                    'team': team, 
+                    'description': desc,
+                    'cor_score': cornell_score,
+                    'opp_score': opp_score
+                })
     if not summary:
         summary = [{"message": "No scoring events in this game."}]
     return summary
@@ -96,15 +110,25 @@ def field_hockey_summary(box_score_section):
     summary = []
     scoring_rows = box_score_section.find(TAG_TABLE, class_=CLASS_OVERALL_STATS).find(TAG_TBODY)
     if scoring_rows:
+        cornell_score = 0
+        opp_score = 0
         for row in scoring_rows.find_all(TAG_TR):
             time = row.find_all(TAG_TD)[0].text.strip()
             team = row.find_all(TAG_TD)[1].find(TAG_IMG)[ATTR_ALT]
             event = row.find_all(TAG_TD)[2]
             desc = event.find_all(TAG_SPAN)[-1].text.strip()
+            
+            if team == "COR" or team == "CU":
+                cornell_score += 1
+            else:
+                opp_score += 1
+                
             summary.append({
                 'time': time,
                 'team': team,
-                'description': desc
+                'description': desc,
+                'cor_score': cornell_score,
+                'opp_score': opp_score
             })
     if not summary:
         summary = [{"message": "No scoring events in this game."}]
