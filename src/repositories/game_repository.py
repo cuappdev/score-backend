@@ -73,6 +73,25 @@ class GameRepository:
             }
         )
         return Game.from_dict(game_data) if game_data else None
+    
+    @staticmethod
+    def find_by_key_fields(city, date, gender, opponent_id, sport, state):
+        """
+        Find a game from its data, but ignores the 
+        location and time fields which may be updated
+        """
+        game_collection = db["game"]
+        game_data = game_collection.find_one(
+            {
+                "city": city,
+                "date": date,
+                "gender": gender,
+                "opponent_id": opponent_id,
+                "sport": sport,
+                "state": state,
+            }
+        )
+        return Game.from_dict(game_data) if game_data else None
 
     @staticmethod
     def find_by_sport(sport):

@@ -188,15 +188,13 @@ def process_game_data(game_data):
     # ISO format
     utc_date_str = game_data["utc_date"].isoformat() if game_data["utc_date"] else None
 
-    curr_game = GameService.get_game_by_data(
+    curr_game = GameService.get_game_by_key_fields(
         city,
         game_data["date"],
         game_data["gender"],
-        location,
         team.id,
         game_data["sport"],
-        state,
-        game_data["time"],
+        state
     )
     if curr_game:
         if curr_game.result != game_data["result"]:
@@ -206,6 +204,8 @@ def process_game_data(game_data):
             GameService.update_game(curr_game.id, {"score_breakdown": game_data["score_breakdown"]})
         if utc_date_str:
             GameService.update_game(curr_game.id, {"utc_date": utc_date_str})
+        if curr_game.time == "TBD" and game_data["time"] != "TBD":
+            GameService.update_game(curr_game.id, {"time": game_data["time"]})
         return
 
     game_data = {
