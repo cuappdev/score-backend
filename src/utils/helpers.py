@@ -1,3 +1,4 @@
+import logging
 import requests
 from PIL import Image
 from io import BytesIO
@@ -16,35 +17,41 @@ def get_dominant_color(image_url, white_threshold=200, black_threshold=50):
     Returns:
         color: The hex code of the dominant color.
     """
-    response = requests.get(image_url)
-    image = Image.open(BytesIO(response.content)).convert("RGBA")
+    default_color = "#000000" 
 
-    image = image.resize((50, 50))
-    image = image.quantize(colors=5).convert("RGBA")
-    pixels = image.getdata()
+    try:
+        response = requests.get(image_url)
+        image = Image.open(BytesIO(response.content)).convert("RGBA")
 
-    filtered_pixels = [
-        pixel
-        for pixel in pixels
-        if not (
-            pixel[0] > white_threshold
-            and pixel[1] > white_threshold
-            and pixel[2] > white_threshold
+        image = image.resize((50, 50))
+        image = image.quantize(colors=5).convert("RGBA")
+        pixels = image.getdata()
+
+        filtered_pixels = [
+            pixel
+            for pixel in pixels
+            if not (
+                pixel[0] > white_threshold
+                and pixel[1] > white_threshold
+                and pixel[2] > white_threshold
+            )
+            and not (
+                pixel[0] < black_threshold
+                and pixel[1] < black_threshold
+                and pixel[2] < black_threshold
+            )
+        ]
+
+        if filtered_pixels:
+            pixel_count = Counter(filtered_pixels)
+            dominant_color = pixel_count.most_common(1)[0][0]
+        else:
+            dominant_color = (0, 0, 0)
+
+        hex_color = "#{:02x}{:02x}{:02x}".format(
+            dominant_color[0], dominant_color[1], dominant_color[2]
         )
-        and not (
-            pixel[0] < black_threshold
-            and pixel[1] < black_threshold
-            and pixel[2] < black_threshold
-        )
-    ]
-
-    if filtered_pixels:
-        pixel_count = Counter(filtered_pixels)
-        dominant_color = pixel_count.most_common(1)[0][0]
-    else:
-        dominant_color = (0, 0, 0)
-
-    hex_color = "#{:02x}{:02x}{:02x}".format(
-        dominant_color[0], dominant_color[1], dominant_color[2]
-    )
-    return hex_color
+        return hex_color
+    except Exception as e:
+        logging.error(f"Error in get_dominant_color for {image_url}: {e}")
+        return default_color
