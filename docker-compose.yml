@@ -8,3 +8,10 @@ services:
       - "8000:8000"
     volumes:
       - ./ca-certificate.crt:/etc/ssl/ca-certificate.crt:ro # Mount MongoDB cert inside the container, ro for read only
+
+  scraper:
+    image: cornellappdev/score-dev:${IMAGE_TAG}
+    env_file: .env
+    command: python scraper.py
+    volumes:
+      - ./ca-certificate.crt:/etc/ssl/ca-certificate.crt:ro
