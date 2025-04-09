@@ -188,13 +188,19 @@ def process_game_data(game_data):
     # ISO format
     utc_date_str = game_data["utc_date"].isoformat() if game_data["utc_date"] else None
 
-    curr_game = GameService.get_game_by_key_fields(
+    game_time = game_data["time"]
+    if game_time is None:
+        game_time = "TBD"
+
+    curr_game = GameService.get_game_by_data(
         city,
         game_data["date"],
         game_data["gender"],
+        location,
         team.id,
         game_data["sport"],
-        state
+        state,
+        game_time,
     )
     if curr_game:
         if curr_game.result != game_data["result"]:
@@ -204,10 +210,23 @@ def process_game_data(game_data):
             GameService.update_game(curr_game.id, {"score_breakdown": game_data["score_breakdown"]})
         if utc_date_str:
             GameService.update_game(curr_game.id, {"utc_date": utc_date_str})
-        if curr_game.time == "TBD" and game_data["time"] != "TBD":
-            GameService.update_game(curr_game.id, {"time": game_data["time"]})
         return
-
+    # if game time is not TBD, check for existing game with TBD time to update
+    if game_time != "TBD":
+        curr_game = GameService.get_game_by_data(
+            city,
+            game_data["date"],
+            game_data["gender"],
+            location,
+            team.id,
+            game_data["sport"],
+            state,
+            "TBD",
+        )
+        if curr_game:
+            GameService.update_game(curr_game.id, {"time": game_time})
+            GameService.update_game(curr_game.id, {"utc_date": utc_date_str})
+            return
     game_data = {
         "city": city,
         "date": game_data["date"],
@@ -217,7 +236,7 @@ def process_game_data(game_data):
         "result": game_data["result"],
         "sport": game_data["sport"],
         "state": state,
-        "time": game_data["time"],
+        "time": game_time,
         "box_score": game_data["box_score"],
         "score_breakdown": game_data["score_breakdown"],
         "utc_date": utc_date_str
