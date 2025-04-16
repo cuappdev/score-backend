@@ -36,9 +36,11 @@ jobs:
           host: ${{ secrets.PROD_SERVER_HOST }}
           username: ${{ secrets.SERVER_USERNAME }}
           key: ${{ secrets.PROD_SERVER_KEY }}
+          envs: IMAGE_TAG
           script: |
-            export IMAGE_TAG=${{ steps.vars.outputs.sha_short }}
-            docker stack rm thestack
-            sleep 20s
-            docker stack deploy -c docker-compose.yml thestack
-            docker system prune -a
+            if docker stack ls | grep -q thestack; then
+              docker service update --image cornellappdev/score:${IMAGE_TAG} thestack_app
+            else
+              docker stack deploy -c docker-compose.yml thestack
+            fi
+            docker system prune -af
