@@ -12,6 +12,9 @@ import time
 import os
 import signal
 import sys
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
 
@@ -82,6 +85,7 @@ if __name__ == "__main__":
 
 
     try:
+        debug = os.getenv("STAGE") != "prod"
         app.run(debug=True, host="0.0.0.0", port=8000)
     except KeyboardInterrupt:
         scheduler.shutdown()
