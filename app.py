@@ -1,6 +1,7 @@
 import logging
 import argparse
-from flask import Flask
+from flask import Flask, request, g
+import time
 from flask_graphql import GraphQLView
 from graphene import Schema
 from src.schema import Query, Mutation
@@ -13,6 +14,18 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = Flask(__name__)
+
+@app.before_request
+def start_timer():
+    g.start = time.time()
+    print(f"[{time.strftime('%H:%M:%S')}] --> {request.method} {request.path} started")
+
+@app.after_request
+def log_response_time(response):
+    if hasattr(g, 'start'):
+        duration = time.time() - g.start
+        print(f"[{time.strftime('%H:%M:%S')}] <-- {request.method} {request.path} finished in {duration:.2f}s")
+    return response
 
 # Configure logging
 logging.basicConfig(
