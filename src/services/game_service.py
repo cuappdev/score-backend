@@ -52,6 +52,15 @@ class GameService:
         return GameRepository.find_by_data(
             city, date, gender, location, opponent_id, sport, state, time
         )
+    
+    @staticmethod
+    def get_game_by_key_fields(city, date, gender, location, opponent_id, sport, state):
+        """
+        Retrieve a game by its essential fields, ignoring time
+        """
+        return GameRepository.find_by_key_fields(
+            city, date, gender, location, opponent_id, sport, state
+        )
 
     @staticmethod
     def get_games_by_sport(sport):

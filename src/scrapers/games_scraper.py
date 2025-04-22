@@ -192,41 +192,27 @@ def process_game_data(game_data):
     if game_time is None:
         game_time = "TBD"
 
-    curr_game = GameService.get_game_by_data(
+    # finds any existing game with the same key fields regardless of time
+    curr_game = GameService.get_game_by_key_fields(
         city,
         game_data["date"],
         game_data["gender"],
         location,
         team.id,
         game_data["sport"],
-        state,
-        game_time,
+        state
     )
     if curr_game:
-        if curr_game.result != game_data["result"]:
-            GameService.update_game(curr_game.id, {"result": game_data["result"]})
-        if curr_game.box_score != game_data["box_score"]:
-            GameService.update_game(curr_game.id, {"box_score": game_data["box_score"]})
-            GameService.update_game(curr_game.id, {"score_breakdown": game_data["score_breakdown"]})
-        if utc_date_str:
-            GameService.update_game(curr_game.id, {"utc_date": utc_date_str})
+        updates = {
+            "time": game_time,
+            "result": game_data["result"],
+            "box_score": game_data["box_score"],
+            "score_breakdown": game_data["score_breakdown"],
+            "utc_date": utc_date_str
+        }
+        GameService.update_game(curr_game.id, updates)
         return
-    # if game time is not TBD, check for existing game with TBD time to update
-    if game_time != "TBD":
-        curr_game = GameService.get_game_by_data(
-            city,
-            game_data["date"],
-            game_data["gender"],
-            location,
-            team.id,
-            game_data["sport"],
-            state,
-            "TBD",
-        )
-        if curr_game:
-            GameService.update_game(curr_game.id, {"time": game_time})
-            GameService.update_game(curr_game.id, {"utc_date": utc_date_str})
-            return
+        
     game_data = {
         "city": city,
         "date": game_data["date"],

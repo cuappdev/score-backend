@@ -73,6 +73,30 @@ class GameRepository:
             }
         )
         return Game.from_dict(game_data) if game_data else None
+    
+    @staticmethod
+    def find_by_key_fields(city, date, gender, location, opponent_id, sport, state):
+        """
+        Find games without time for duplicate games
+        """
+        game_collection = db["game"]
+        games = list(game_collection.find({
+            "city": city,
+            "date": date,
+            "gender": gender,
+            "location": location,
+            "opponent_id": opponent_id,
+            "sport": sport,
+            "state": state,
+        }))
+        
+        if not games:
+            return None
+            
+        if len(games) == 1:
+            return Game.from_dict(games[0])
+            
+        return [Game.from_dict(game) for game in games]
 
     @staticmethod
     def find_by_sport(sport):
