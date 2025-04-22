@@ -68,7 +68,10 @@ def football_summary(box_score_section):
                 description = row.find_all(TAG_TD)[3].text.strip()
                 cornell_score = row.find_all(TAG_TD)[4].text.strip()
                 opp_score = row.find_all(TAG_TD)[5].text.strip()
+                description_parts = description.split(' - ', 1)
+                team = description_parts[0].strip() if len(description_parts) > 1 else ""
                 summary.append({
+                    'team': team,
                     'period': period,
                     'time': time,
                     'description': description,
@@ -145,8 +148,8 @@ def lacrosse_summary(box_score_section):
                 time = row.find_all(TAG_TD)[3].text.strip()
                 scorer = row.find_all(TAG_TD)[4].text.strip()
                 assist = row.find_all(TAG_TD)[5].text.strip()
-                opp_score = row.find_all(TAG_TD)[6].text.strip()
-                cor_score = row.find_all(TAG_TD)[7].text.strip()
+                opp_score = row.find_all(TAG_TD)[7].text.strip()
+                cor_score = row.find_all(TAG_TD)[6].text.strip()
                 summary.append({
                     'period': period,
                     'time': time,
