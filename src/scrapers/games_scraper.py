@@ -223,6 +223,11 @@ def process_game_data(game_data):
         game_data["sport"],
         state
     )
+    if isinstance(curr_game, list):
+        if curr_game:
+            curr_game = curr_game[0]
+        else:
+            curr_game = None
     if curr_game:
         updates = {
             "time": game_time,
