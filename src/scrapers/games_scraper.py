@@ -139,6 +139,27 @@ def parse_schedule_page(url, sport, gender):
             else:
                 game_data["box_score"] = game_details.get("scoring_summary")
                 game_data["score_breakdown"] = game_details.get("scores")
+
+                if sport in ["Baseball", "Football", "Lacrosse"]:
+                    location_data = game_data["location"].split("\n") if game_data["location"] else [""]
+                    geo_location = location_data[0]
+                    is_home_game = "Ithaca" in geo_location
+                    
+                    if is_home_game and game_data["box_score"]:
+                        for event in game_data["box_score"]:
+                            if "cor_score" in event and "opp_score" in event:
+                                event["cor_score"], event["opp_score"] = event["opp_score"], event["cor_score"]
+                
+                if sport == "Ice Hockey":
+                    location_data = game_data["location"].split("\n") if game_data["location"] else [""]
+                    geo_location = location_data[0]
+                    is_home_game = "Ithaca" in geo_location
+                    
+                    if not is_home_game and game_data["box_score"]:
+                        for event in game_data["box_score"]:
+                            if "cor_score" in event and "opp_score" in event:
+                                event["cor_score"], event["opp_score"] = event["opp_score"], event["cor_score"]
+
         else:
             game_data["box_score"] = None
             game_data["score_breakdown"] = None
