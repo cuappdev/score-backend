@@ -4,4 +4,4 @@ WORKDIR /usr/src/app
 COPY . .
 RUN pip3 install --upgrade pip
 RUN pip install -r requirements.txt
-CMD python app.py
+CMD gunicorn app:app -b 0.0.0.0:8000 --workers 4
