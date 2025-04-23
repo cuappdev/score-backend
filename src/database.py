@@ -18,9 +18,11 @@ else:
 if use_tls:
     # client_options = {
     #     "maxPoolSize": 100,
+    #     "minPoolSize": 10,
     #     "waitQueueTimeoutMS": 2000,
     #     "connectTimeoutMS": 30000,
     #     "socketTimeoutMS": 45000,
+    #     "serverSelectionTimeoutMS": 30000
     # }
     client = MongoClient(
         os.getenv("MONGO_URI"),

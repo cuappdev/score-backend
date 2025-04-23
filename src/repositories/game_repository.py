@@ -1,23 +1,47 @@
 from src.database import db
 from src.models.game import Game
 
+import threading
+import logging
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
+
 
 class GameRepository:
     @staticmethod
     def find_all(limit=100, offset=0):
         """
-        Retrieve all games from the 'games' collection in MongoDB with pagination.
-
-        Args:
-            limit (int): Maximum number of records to return
-            offset (int): Number of records to skip
-
-        Returns:
-            List[Game]: A list of Game objects.
+        Retrieve all games from the 'game' collection in MongoDB with pagination.
         """
-        game_collection = db["game"]
-        games = game_collection.find().skip(offset).limit(limit)
-        return [Game.from_dict(game) for game in games]
+        request_id = id(threading.current_thread())  # Get a unique ID for this request
+        logger.info(
+            f"Request {request_id}: Starting find_all with limit={limit}, offset={offset}"
+        )
+
+        try:
+            game_collection = db["game"]
+            logger.info(f"Request {request_id}: Connected to game collection")
+
+            cursor = game_collection.find().skip(offset).limit(limit)
+            logger.info(f"Request {request_id}: Created cursor")
+
+            # Force MongoDB to actually perform the query
+            games_list = list(cursor)
+            logger.info(f"Request {request_id}: Retrieved {len(games_list)} games")
+
+            result = [Game.from_dict(game) for game in games_list]
+            logger.info(
+                f"Request {request_id}: Converted to {len(result)} Game objects"
+            )
+
+            return result
+        except Exception as e:
+            logger.error(f"Request {request_id}: Error in find_all: {str(e)}")
+            raise
 
     @staticmethod
     def find_by_id(game_id):
