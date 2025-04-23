@@ -88,21 +88,27 @@ def hockey_summary(box_score_section):
     if scoring_table:
         scoring_rows = scoring_table.find(TAG_TBODY)
         if scoring_rows:
+            cornell_score = 0
+            opp_score = 0
             for row in scoring_rows.find_all(TAG_TR):
                 team = row.find_all(TAG_TD)[1].find(TAG_IMG)[ATTR_ALT]
                 period = row.find_all(TAG_TD)[2].text.strip()
                 time = row.find_all(TAG_TD)[3].text.strip()
                 scorer = row.find_all(TAG_TD)[4].text.strip()
                 assist = row.find_all(TAG_TD)[5].text.strip()
-                opp_score = row.find_all(TAG_TD)[6].text.strip()
-                cor_score = row.find_all(TAG_TD)[7].text.strip()
+                
+                if team == "COR" or team == "CU" or team == "Cornell":
+                    cornell_score += 1
+                else:
+                    opp_score += 1
+
                 summary.append({
                     'team': team,
                     'period': period,
                     'time': time,
                     'scorer': scorer,
                     'assist': assist,
-                    'cor_score': cor_score,
+                    'cor_score': cornell_score,
                     'opp_score': opp_score,
                 })
     if not summary:
