@@ -149,16 +149,6 @@ def parse_schedule_page(url, sport, gender):
                         for event in game_data["box_score"]:
                             if "cor_score" in event and "opp_score" in event:
                                 event["cor_score"], event["opp_score"] = event["opp_score"], event["cor_score"]
-                
-                if sport == "Ice Hockey":
-                    location_data = game_data["location"].split("\n") if game_data["location"] else [""]
-                    geo_location = location_data[0]
-                    is_home_game = "Ithaca" in geo_location
-                    
-                    if not is_home_game and game_data["box_score"]:
-                        for event in game_data["box_score"]:
-                            if "cor_score" in event and "opp_score" in event:
-                                event["cor_score"], event["opp_score"] = event["opp_score"], event["cor_score"]
 
         else:
             game_data["box_score"] = None
@@ -219,6 +209,27 @@ def process_game_data(game_data):
     # do this before branching
     if game_data["score_breakdown"] and is_home_game:
         game_data["score_breakdown"] = game_data["score_breakdown"][::-1]
+
+    # consistency check for ice hockey, since can be randomly ordered
+    if game_data["sport"] == "Ice Hockey" and game_data["score_breakdown"] and game_data["box_score"]:
+        # Get final scores from box score
+        final_box_cor_score = None
+        final_box_opp_score = None
+        for event in reversed(game_data["box_score"]):
+            if "cor_score" in event and "opp_score" in event:
+                final_box_cor_score = event["cor_score"]
+                final_box_opp_score = event["opp_score"]
+                break
+        
+        # Compare with score breakdown
+        if final_box_cor_score and len(game_data["score_breakdown"]) >= 2:
+            cor_final = game_data["score_breakdown"][0][-1]
+            opp_final = game_data["score_breakdown"][1][-1]
+            
+            # If they don't match, flip the arrays
+            if str(final_box_cor_score) != str(cor_final) or str(final_box_opp_score) != str(opp_final):
+                print("flipping")
+                game_data["score_breakdown"] = game_data["score_breakdown"][::-1]
 
     # finds any existing game with the same key fields regardless of time
     curr_game = GameService.get_game_by_key_fields(
