@@ -213,6 +213,13 @@ def process_game_data(game_data):
     if game_time is None:
         game_time = "TBD"
 
+    is_home_game = "Ithaca" in city
+    
+    # make sure cornell is first in score breakdown - switch order on home games
+    # do this before branching
+    if game_data["score_breakdown"] and is_home_game:
+        game_data["score_breakdown"] = game_data["score_breakdown"][::-1]
+
     # finds any existing game with the same key fields regardless of time
     curr_game = GameService.get_game_by_key_fields(
         city,
@@ -253,10 +260,5 @@ def process_game_data(game_data):
         "score_breakdown": game_data["score_breakdown"],
         "utc_date": utc_date_str
     }
-
-    # make sure cornell is first in score breakdown - switch order on home games
-    if game_data["score_breakdown"]:
-        if city == "Ithaca":
-            game_data["score_breakdown"] = game_data["score_breakdown"][::-1]
         
     GameService.create_game(game_data)
