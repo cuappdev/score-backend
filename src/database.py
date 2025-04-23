@@ -16,7 +16,15 @@ else:
 
 # Initialize MongoDB client
 if use_tls:
-    client = MongoClient(os.getenv("MONGO_URI"), tls=True, tlsCAFile=file_name)
+    client_options = {
+        "maxPoolSize": 100,
+        "waitQueueTimeoutMS": 2000,
+        "connectTimeoutMS": 30000,
+        "socketTimeoutMS": 45000,
+    }
+    client = MongoClient(
+        os.getenv("MONGO_URI"), tls=True, tlsCAFile=file_name, **client_options
+    )
 else:
     client = MongoClient(os.getenv("MONGO_URI"))
 
