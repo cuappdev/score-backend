@@ -170,7 +170,9 @@ def process_game_data(game_data):
         city = geo_location
         state = geo_location
     else:
-        city, state = map(str.strip, geo_location.split(","))
+        parts = [part.strip() for part in geo_location.split(",")]
+        city = parts[0]
+        state = parts[-1]
     location = location_data[1] if len(location_data) > 1 else None
 
     team = TeamService.get_team_by_name(game_data["opponent_name"])
@@ -228,7 +230,6 @@ def process_game_data(game_data):
             
             # If they don't match, flip the arrays
             if str(final_box_cor_score) != str(cor_final) or str(final_box_opp_score) != str(opp_final):
-                print("flipping")
                 game_data["score_breakdown"] = game_data["score_breakdown"][::-1]
 
     # finds any existing game with the same key fields regardless of time
