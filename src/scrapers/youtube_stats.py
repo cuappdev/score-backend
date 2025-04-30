@@ -3,13 +3,13 @@ from src.utils.constants import CHANNEL_ID, VIDEO_LIMIT
 from dotenv import load_dotenv
 from src.models.youtube_video import YoutubeVideo
 from src.services.youtube_video_service import YoutubeVideoService
-from src.database import db
 import base64
 import os
 import html
 
 load_dotenv()
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
+
 
 def fetch_videos():
     """
@@ -24,6 +24,7 @@ def fetch_videos():
             continue
         process_video_item(item)
 
+
 def process_video_item(item):
     """
     Extracts the required data from a video item and
@@ -33,7 +34,7 @@ def process_video_item(item):
     video_id = item["id"]["videoId"]
 
     # video metadata
-    snippet = item["snippet"]    
+    snippet = item["snippet"]
     title = html.unescape(snippet.get("title"))
     description = html.unescape(snippet.get("description"))
 
@@ -47,15 +48,15 @@ def process_video_item(item):
         try:
             response = requests.get(thumbnail)
             response.raise_for_status()
-            encoded_thumbnail = base64.b64encode(response.content).decode('utf-8')
+            encoded_thumbnail = base64.b64encode(response.content).decode("utf-8")
         except Exception as e:
             print(f"Error fetching thumbnail: {e}")
-    
+
     published_at = snippet.get("publishedAt")
     video_url = f"https://www.youtube.com/watch?v={video_id}"
 
     video_data = {
-        "id": video_id, # use video id for easy retrieval
+        "id": video_id,  # use video id for easy retrieval
         "title": title,
         "description": description,
         "thumbnail": thumbnail,

@@ -1,5 +1,4 @@
 from bson.objectid import ObjectId
-from src.database import db
 
 
 class Team:

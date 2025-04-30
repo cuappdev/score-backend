@@ -1,5 +1,4 @@
 from bson.objectid import ObjectId
-from src.database import db
 
 
 class YoutubeVideo:
@@ -15,7 +14,9 @@ class YoutubeVideo:
         - `published_at`    The date and time the video was published.
     """
 
-    def __init__(self, title, description, thumbnail, b64_thumbnail, url, published_at, id=None):
+    def __init__(
+        self, title, description, thumbnail, b64_thumbnail, url, published_at, id=None
+    ):
         self.id = id if id else str(ObjectId())
         self.title = title
         self.description = description
