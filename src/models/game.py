@@ -35,7 +35,7 @@ class Game:
         box_score=None,
         score_breakdown=None,
         team=None,
-        utc_date=None
+        utc_date=None,
     ):
         self.id = id if id else str(ObjectId())
         self.city = city
@@ -70,7 +70,7 @@ class Game:
             "box_score": self.box_score,
             "score_breakdown": self.score_breakdown,
             "team": self.team,
-            "utc_date": self.utc_date
+            "utc_date": self.utc_date,
         }
 
     @staticmethod
@@ -92,5 +92,5 @@ class Game:
             box_score=data.get("box_score"),
             score_breakdown=data.get("score_breakdown"),
             team=data.get("team"),
-            utc_date=data.get("utc_date")
+            utc_date=data.get("utc_date"),
         )

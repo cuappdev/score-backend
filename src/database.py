@@ -16,19 +16,10 @@ else:
 
 # Initialize MongoDB client
 if use_tls:
-    # client_options = {
-    #     "maxPoolSize": 100,
-    #     "minPoolSize": 10,
-    #     "waitQueueTimeoutMS": 2000,
-    #     "connectTimeoutMS": 30000,
-    #     "socketTimeoutMS": 45000,
-    #     "serverSelectionTimeoutMS": 30000
-    # }
     client = MongoClient(
         os.getenv("MONGO_URI"),
         tls=True,
         tlsCAFile=file_name,
-        # **client_options
     )
 else:
     client = MongoClient(os.getenv("MONGO_URI"))
@@ -57,3 +48,28 @@ threading.Thread(target=keep_connection_alive, daemon=True).start()
 
 # Access the database
 db = client[os.getenv("MONGO_DB", "score_db")]
+
+
+def setup_database_indexes():
+    """Set up MongoDB indexes for optimal query performance"""
+    try:
+        game_collection = db["game"]
+
+        # Create single field indexes for commonly queried fields
+        game_collection.create_index([("sport", 1)], background=True)
+        game_collection.create_index([("date", 1)], background=True)
+        game_collection.create_index([("gender", 1)], background=True)
+
+        # Create compound indexes for common query combinations
+        game_collection.create_index([("sport", 1), ("gender", 1)], background=True)
+
+        # Index for sorting operations
+        game_collection.create_index([("date", -1)], background=True)
+
+        print("✅ MongoDB indexes created successfully")
+    except Exception as e:
+        print(f"❌ Failed to create MongoDB indexes: {e}")
+        raise e
+
+
+setup_database_indexes()

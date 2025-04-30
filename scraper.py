@@ -38,8 +38,12 @@ signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
 
 if __name__ == "__main__":
-    scheduler.add_job(scrape_schedules, "interval", seconds=300, id="scrape_schedules")
-    scheduler.add_job(scrape_videos, "interval", seconds=43200, id="scrape_videos")
+    scheduler.add_job(
+        scrape_schedules, "interval", seconds=60 * 60, id="scrape_schedules"
+    )
+    scheduler.add_job(
+        scrape_videos, "interval", seconds=60 * 60 * 24, id="scrape_videos"
+    )
     scheduler.start()
     scrape_schedules()
     scrape_videos()
