@@ -176,11 +176,18 @@ def lacrosse_summary(box_score_section):
                 assist = clean_name(row.find_all(TAG_TD)[5].text.strip())
                 opp_score = row.find_all(TAG_TD)[7].text.strip()
                 cor_score = row.find_all(TAG_TD)[6].text.strip()
+                
+                if assist and assist != "Unassisted":
+                    desc = f"Scored by {scorer}, assisted by {assist}"
+                else:
+                    desc = f"Scored by {scorer}"
+
                 summary.append({
                     'team': team,
                     'period': period,
                     'time': time,
                     'scorer': scorer,
+                    'description': desc,
                     'assist': assist,
                     'cor_score': cor_score,
                     'opp_score': opp_score,

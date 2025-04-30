@@ -230,7 +230,6 @@ def process_game_data(game_data):
             
             # If they don't match, flip the arrays
             if str(final_box_cor_score) != str(cor_final) or str(final_box_opp_score) != str(opp_final):
-                print("flipping")
                 game_data["score_breakdown"] = game_data["score_breakdown"][::-1]
 
     # finds any existing game with the same key fields regardless of time
