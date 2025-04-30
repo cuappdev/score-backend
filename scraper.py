@@ -24,6 +24,7 @@ def scrape_schedules():
 
 
 def scrape_videos():
+    start_time = time.time()
     logging.info("Scraping YouTube videos")
     fetch_videos()
     elapsed_time = time.time() - start_time
