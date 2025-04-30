@@ -26,6 +26,8 @@ def scrape_schedules():
 def scrape_videos():
     logging.info("Scraping YouTube videos")
     fetch_videos()
+    elapsed_time = time.time() - start_time
+    logging.info(f"Completed scraping videos in {elapsed_time:.2f} seconds")
 
 
 def signal_handler(sig, frame):
