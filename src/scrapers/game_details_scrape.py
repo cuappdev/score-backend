@@ -1,6 +1,25 @@
+import re
 import requests
 from bs4 import BeautifulSoup
 from src.utils.constants import *
+
+def clean_name(name):
+    """Strip extra information from player names, keeping only first and last name."""
+    # try to match firstname, lastname format
+    if ',' in name:
+        match = re.match(r'^([^,]+),\s*(\w+)', name)
+        if match:
+            return f"{match.group(1)}, {match.group(2)}"
+    else:
+        match = re.match(r'^(\w+)\s+(\w+)', name)
+        if match:
+            return f"{match.group(1)} {match.group(2)}"
+    
+    # fallback for removing common extra characters
+    cleaned = re.sub(r'\s*\([^)]*\).*$', '', name)
+    cleaned = re.sub(r'\s*\d+.*$', '', cleaned)
+    cleaned = cleaned.strip()
+    return cleaned
 
 def fetch_page(url):
     response = requests.get(url)
@@ -150,13 +169,15 @@ def lacrosse_summary(box_score_section):
         scoring_rows = scoring_table.find(TAG_TBODY)
         if scoring_rows:
             for row in scoring_rows.find_all(TAG_TR):
+                team = row.find_all(TAG_TD)[1].find(TAG_IMG)[ATTR_ALT]
                 period = row.find_all(TAG_TD)[2].text.strip()
                 time = row.find_all(TAG_TD)[3].text.strip()
-                scorer = row.find_all(TAG_TD)[4].text.strip()
-                assist = row.find_all(TAG_TD)[5].text.strip()
+                scorer = clean_name(row.find_all(TAG_TD)[4].text.strip())
+                assist = clean_name(row.find_all(TAG_TD)[5].text.strip())
                 opp_score = row.find_all(TAG_TD)[7].text.strip()
                 cor_score = row.find_all(TAG_TD)[6].text.strip()
                 summary.append({
+                    'team': team,
                     'period': period,
                     'time': time,
                     'scorer': scorer,

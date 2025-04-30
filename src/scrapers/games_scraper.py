@@ -170,7 +170,9 @@ def process_game_data(game_data):
         city = geo_location
         state = geo_location
     else:
-        city, state = map(str.strip, geo_location.split(","))
+        parts = [part.strip() for part in geo_location.split(",")]
+        city = parts[0]
+        state = parts[-1]
     location = location_data[1] if len(location_data) > 1 else None
 
     team = TeamService.get_team_by_name(game_data["opponent_name"])
