@@ -89,6 +89,9 @@ def parse_schedule_page(url, sport, gender):
             else game_item.select_one(OPPONENT_NAME_TAG).text.strip()
         )
         game_data["opponent_name"] = opponent_name
+        wrong_names = ["vs.", "NCAA", "Tournament", "Ivy League"]
+        if any(name in opponent_name for name in wrong_names):
+            continue
 
         opponent_logo_tag = game_item.select_one(OPPONENT_LOGO_TAG)
         opponent_logo = (
