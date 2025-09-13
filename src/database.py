@@ -48,7 +48,7 @@ threading.Thread(target=keep_connection_alive, daemon=True).start()
 
 # Access the database
 db = client[os.getenv("MONGO_DB", "score_db")]
-
+print("Total games in DB:", db["game"].count_documents({}))
 
 def setup_database_indexes():
     """Set up MongoDB indexes for optimal query performance"""
@@ -65,6 +65,21 @@ def setup_database_indexes():
 
         # Index for sorting operations
         game_collection.create_index([("date", -1)], background=True)
+        
+        # Index to have unique games so we won't add duplicates
+        game_collection.create_index(
+            [
+                ("sport", 1),
+                ("gender", 1),
+                ("date", 1),
+                ("opponent_id", 1),
+                ("city", 1),
+                ("state", 1),
+                ("location", 1),
+            ],
+            unique=True,
+            background=True
+        )
 
         print("✅ MongoDB indexes created successfully")
     except Exception as e:
