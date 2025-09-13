@@ -1,7 +1,6 @@
 from src.repositories import TeamRepository
 from src.models.team import Team
 
-
 class TeamService:
     @staticmethod
     def get_all_teams():
@@ -13,14 +12,20 @@ class TeamService:
     @staticmethod
     def create_team(team_data):
         """
-        Create a new team.
-
-        Args:
-            team_data (dict): The data for the new team.
-
-        Returns:
-            Team: The created team.
+        Create a new team, or update it if it already exists.
         """
+        name = team_data.get("name")
+        if not name:
+            raise ValueError("Team name is required to create a team.")
+        
+        existing = TeamService.get_team_by_name(name)
+        if existing:
+            if isinstance(existing, list) and existing:
+                existing = existing[0]
+
+            TeamService.update_team(existing.id, team_data)
+            return existing
+
         team = Team(**team_data)
         TeamRepository.insert(team)
         return team

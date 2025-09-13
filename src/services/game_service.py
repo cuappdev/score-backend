@@ -33,6 +33,34 @@ class GameService:
         opponent_id = data.get("opponent_id")
         if not TeamService.get_team_by_id(opponent_id):
             raise ValueError(f"Opponent team with id {opponent_id} does not exist.")
+        
+        existing = GameService.get_game_by_key_fields(
+            data["city"],
+            data["date"],
+            data["gender"],
+            data["location"],
+            data["opponent_id"],
+            data["sport"],
+            data["state"],
+        )
+
+        #check if game already exists
+        if existing:
+            if isinstance(existing, list) and existing:
+                existing = existing[0]
+
+            # update existing game
+            updates = {
+                "time": data.get("time"),
+                "result": data.get("result"),
+                "box_score": data.get("box_score"),
+                "score_breakdown": data.get("score_breakdown"),
+                "utc_date": data.get("utc_date"),
+            }
+            GameService.update_game(existing.id, updates)
+            return existing
+
+        # create new game if it doesn't exist
         game = Game(**data)
         GameRepository.insert(game)
         return game

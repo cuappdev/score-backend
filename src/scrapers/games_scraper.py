@@ -273,19 +273,4 @@ def process_game_data(game_data):
         "utc_date": utc_date_str
     }
     
-    # update the game if it exists, otherwise insert it as a new game.
-    db.game.update_one(
-        {
-            "sport": game_data["sport"],
-            "gender": game_data["gender"],
-            "date": game_data["date"],
-            "opponent_id": game_data["opponent_id"],
-            "city": game_data["city"],
-            "state": game_data["state"],
-            "location": game_data["location"],
-        },
-        {"$set": game_data},
-        upsert=True
-    )
-        
     GameService.create_game(game_data)
