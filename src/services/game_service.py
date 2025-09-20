@@ -147,5 +147,4 @@ class GameService:
             loss_date (datetime): The date when the team lost
         """
         deleted_count = GameService.delete_tournament_games_by_sport_gender(sport, gender, loss_date)
-        print(f"Deleted {deleted_count} future tournament games for {gender} {sport} after loss on {loss_date}")
         return deleted_count
