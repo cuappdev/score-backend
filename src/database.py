@@ -73,11 +73,21 @@ def setup_database_indexes():
                 ("gender", 1),
                 ("date", 1),
                 ("opponent_id", 1),
-                ("city", 1),
                 ("state", 1),
-                ("location", 1),
             ],
             unique=True,
+            background=True
+        )
+        
+        # Additional index for tournament games (without opponent_id)
+        game_collection.create_index(
+            [
+                ("sport", 1),
+                ("gender", 1),
+                ("date", 1),
+                ("city", 1),
+                ("state", 1),
+            ],
             background=True
         )
 
