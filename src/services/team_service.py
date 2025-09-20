@@ -13,6 +13,11 @@ class TeamService:
     def create_team(team_data):
         """
         Create a new team, or update it if it already exists.
+        
+        Args:
+            team_data (dict): The data for the new team.
+        Returns:
+            Team: The created team.
         """
         name = team_data.get("name")
         if not name:

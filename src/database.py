@@ -48,7 +48,6 @@ threading.Thread(target=keep_connection_alive, daemon=True).start()
 
 # Access the database
 db = client[os.getenv("MONGO_DB", "score_db")]
-print("Total games in DB:", db["game"].count_documents({}))
 
 def setup_database_indexes():
     """Set up MongoDB indexes for optimal query performance"""
