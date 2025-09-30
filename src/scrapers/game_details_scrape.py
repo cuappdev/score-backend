@@ -1,6 +1,25 @@
+import re
 import requests
 from bs4 import BeautifulSoup
 from src.utils.constants import *
+
+def clean_name(name):
+    """Strip extra information from player names, keeping only first and last name."""
+    # try to match firstname, lastname format
+    if ',' in name:
+        match = re.match(r'^([^,]+),\s*(\w+)', name)
+        if match:
+            return f"{match.group(1)}, {match.group(2)}"
+    else:
+        match = re.match(r'^(\w+)\s+(\w+)', name)
+        if match:
+            return f"{match.group(1)} {match.group(2)}"
+    
+    # fallback for removing common extra characters
+    cleaned = re.sub(r'\s*\([^)]*\).*$', '', name)
+    cleaned = re.sub(r'\s*\d+.*$', '', cleaned)
+    cleaned = cleaned.strip()
+    return cleaned
 
 def fetch_page(url):
     response = requests.get(url)
@@ -32,12 +51,26 @@ def soccer_summary(box_score_section):
     if scoring_section:
         scoring_rows = scoring_section.find(TAG_TBODY)
         if scoring_rows:
+            cornell_score = 0
+            opp_score = 0
             for row in scoring_rows.find_all(TAG_TR):
                 time = row.find_all(TAG_TD)[0].text.strip()
                 team = row.find_all(TAG_TD)[1].find(TAG_IMG)[ATTR_ALT]
                 event = row.find_all(TAG_TD)[2]
                 desc = event.find_all(TAG_SPAN)[-1].text.strip()
-                summary.append({'time': time, 'team': team, 'description': desc})
+                
+                if team == "COR" or team == "CU":
+                    cornell_score += 1
+                else:
+                    opp_score += 1
+                    
+                summary.append({
+                    'time': time, 
+                    'team': team, 
+                    'description': desc,
+                    'cor_score': cornell_score,
+                    'opp_score': opp_score
+                })
     if not summary:
         summary = [{"message": "No scoring events in this game."}]
     return summary
@@ -54,7 +87,10 @@ def football_summary(box_score_section):
                 description = row.find_all(TAG_TD)[3].text.strip()
                 cornell_score = row.find_all(TAG_TD)[4].text.strip()
                 opp_score = row.find_all(TAG_TD)[5].text.strip()
+                description_parts = description.split(' - ', 1)
+                team = description_parts[0].strip() if len(description_parts) > 1 else ""
                 summary.append({
+                    'team': team,
                     'period': period,
                     'time': time,
                     'description': description,
@@ -71,21 +107,27 @@ def hockey_summary(box_score_section):
     if scoring_table:
         scoring_rows = scoring_table.find(TAG_TBODY)
         if scoring_rows:
+            cornell_score = 0
+            opp_score = 0
             for row in scoring_rows.find_all(TAG_TR):
                 team = row.find_all(TAG_TD)[1].find(TAG_IMG)[ATTR_ALT]
                 period = row.find_all(TAG_TD)[2].text.strip()
                 time = row.find_all(TAG_TD)[3].text.strip()
                 scorer = row.find_all(TAG_TD)[4].text.strip()
                 assist = row.find_all(TAG_TD)[5].text.strip()
-                opp_score = row.find_all(TAG_TD)[6].text.strip()
-                cor_score = row.find_all(TAG_TD)[7].text.strip()
+                
+                if team == "COR" or team == "CU" or team == "Cornell":
+                    cornell_score += 1
+                else:
+                    opp_score += 1
+
                 summary.append({
                     'team': team,
                     'period': period,
                     'time': time,
                     'scorer': scorer,
                     'assist': assist,
-                    'cor_score': cor_score,
+                    'cor_score': cornell_score,
                     'opp_score': opp_score,
                 })
     if not summary:
@@ -96,15 +138,25 @@ def field_hockey_summary(box_score_section):
     summary = []
     scoring_rows = box_score_section.find(TAG_TABLE, class_=CLASS_OVERALL_STATS).find(TAG_TBODY)
     if scoring_rows:
+        cornell_score = 0
+        opp_score = 0
         for row in scoring_rows.find_all(TAG_TR):
             time = row.find_all(TAG_TD)[0].text.strip()
             team = row.find_all(TAG_TD)[1].find(TAG_IMG)[ATTR_ALT]
             event = row.find_all(TAG_TD)[2]
             desc = event.find_all(TAG_SPAN)[-1].text.strip()
+            
+            if team == "COR" or team == "CU":
+                cornell_score += 1
+            else:
+                opp_score += 1
+                
             summary.append({
                 'time': time,
                 'team': team,
-                'description': desc
+                'description': desc,
+                'cor_score': cornell_score,
+                'opp_score': opp_score
             })
     if not summary:
         summary = [{"message": "No scoring events in this game."}]
@@ -117,16 +169,25 @@ def lacrosse_summary(box_score_section):
         scoring_rows = scoring_table.find(TAG_TBODY)
         if scoring_rows:
             for row in scoring_rows.find_all(TAG_TR):
+                team = row.find_all(TAG_TD)[1].find(TAG_IMG)[ATTR_ALT]
                 period = row.find_all(TAG_TD)[2].text.strip()
                 time = row.find_all(TAG_TD)[3].text.strip()
-                scorer = row.find_all(TAG_TD)[4].text.strip()
-                assist = row.find_all(TAG_TD)[5].text.strip()
-                opp_score = row.find_all(TAG_TD)[6].text.strip()
-                cor_score = row.find_all(TAG_TD)[7].text.strip()
+                scorer = clean_name(row.find_all(TAG_TD)[4].text.strip())
+                assist = clean_name(row.find_all(TAG_TD)[5].text.strip())
+                opp_score = row.find_all(TAG_TD)[7].text.strip()
+                cor_score = row.find_all(TAG_TD)[6].text.strip()
+                
+                if assist and assist != "Unassisted":
+                    desc = f"Scored by {scorer}, assisted by {assist}"
+                else:
+                    desc = f"Scored by {scorer}"
+
                 summary.append({
+                    'team': team,
                     'period': period,
                     'time': time,
                     'scorer': scorer,
+                    'description': desc,
                     'assist': assist,
                     'cor_score': cor_score,
                     'opp_score': opp_score,
@@ -179,6 +240,11 @@ def scrape_game(url, sport):
     if extract_teams_func and summary_func:
         team_names, scores = extract_teams_func()
         scoring_summary = summary_func(box_score_section)
+        
+        for event in scoring_summary:
+            if not event.get("time") and event.get("period"):
+                event["time"] = event["period"]
+                
         return {
             'teams': team_names,
             'scores': scores,

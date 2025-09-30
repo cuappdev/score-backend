@@ -9,12 +9,14 @@ class TeamType(ObjectType):
         - `id`: The ID of the team (optional).
         - `color`: The color of the team.
         - `image`: The image of the team (optional).
+        - `b64_image`: The base64 encoded image of the team (optional).
         - `name`: The name of the team.
     """
 
     id = String(required=False)
     color = String(required=True)
     image = String(required=False)
+    b64_image = String(required=False)
     name = String(required=True)
 
     def __init__(self, **kwargs):
@@ -101,9 +103,10 @@ class GameType(ObjectType):
     box_score = List(BoxScoreEntryType, required=False)
     score_breakdown = List(List(String), required=False)
     team = Field(TeamType, required=False)
+    utc_date = String(required=False)
 
     def __init__(
-        self, id, city, date, gender, location, opponent_id, result, sport, state, time, box_score=None, score_breakdown=None
+        self, id, city, date, gender, location, opponent_id, result, sport, state, time, box_score=None, score_breakdown=None, utc_date=None
     ):
         self.id = id
         self.city = city
@@ -117,6 +120,7 @@ class GameType(ObjectType):
         self.time = time
         self.box_score = box_score
         self.score_breakdown = score_breakdown
+        self.utc_date = utc_date
     
     @staticmethod
     def team_to_team_type(team_obj):
@@ -126,6 +130,7 @@ class GameType(ObjectType):
             id=str(team_obj.id),
             color=team_obj.color,
             image=team_obj.image,
+            b64_image=team_obj.b64_image,
             name=team_obj.name
         )
 
@@ -154,6 +159,7 @@ class YoutubeVideoType(ObjectType):
     title = String(required=True)
     description = String(required=True)
     thumbnail = String(required=True)
+    b64_thumbnail = String(required=True)
     url = String(required=True)
     published_at = String(required=True)
 

@@ -1,10 +1,14 @@
-from graphene import ObjectType, String, Field, List
+from graphene import ObjectType, String, Field, List, Int
 from src.services.game_service import GameService
 from src.types import GameType
 
 
 class GameQuery(ObjectType):
-    games = List(GameType)
+    games = List(
+        GameType,
+        limit=Int(default_value=100, description="Number of games to return"),
+        offset=Int(default_value=0, description="Number of games to skip"),
+    )
     game = Field(GameType, id=String(required=True))
     game_by_data = Field(
         GameType,
@@ -23,11 +27,11 @@ class GameQuery(ObjectType):
         GameType, sport=String(required=True), gender=String(required=True)
     )
 
-    def resolve_games(self, info):
+    def resolve_games(self, info, limit=100, offset=0):
         """
-        Resolver for retrieving all games.
+        Resolver for retrieving all games with pagination.
         """
-        return GameService.get_all_games()
+        return GameService.get_all_games(limit=limit, offset=offset)
 
     def resolve_game(self, info, id):
         """

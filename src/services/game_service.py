@@ -5,11 +5,18 @@ from src.services.team_service import TeamService
 
 class GameService:
     @staticmethod
-    def get_all_games():
+    def get_all_games(limit=100, offset=0):
         """
-        Retrieve all games.
+        Retrieves all games with pagination.
+
+        Args:
+            limit (int): Maximum number of records to return
+            offset (int): Number of records to skip
+
+        Returns:
+            list: A list of game documents
         """
-        return GameRepository.find_all()
+        return GameRepository.find_all(limit=limit, offset=offset)
 
     @staticmethod
     def get_game_by_id(game_id):
@@ -51,6 +58,15 @@ class GameService:
         """
         return GameRepository.find_by_data(
             city, date, gender, location, opponent_id, sport, state, time
+        )
+
+    @staticmethod
+    def get_game_by_key_fields(city, date, gender, location, opponent_id, sport, state):
+        """
+        Retrieve a game by its essential fields, ignoring time
+        """
+        return GameRepository.find_by_key_fields(
+            city, date, gender, location, opponent_id, sport, state
         )
 
     @staticmethod

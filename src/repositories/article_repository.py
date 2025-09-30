@@ -10,9 +10,13 @@ class ArticleRepository:
         Upsert an article into the 'news_articles' collection in MongoDB.
         """
         article_collection = daily_sun_db["news_articles"]
+        article_dict = article.to_dict()
+        # Remove _id from the update to avoid MongoDB error
+        article_dict.pop("_id", None)
+        
         article_collection.update_one(
             {"slug": article.slug},
-            {"$set": article.to_dict()},
+            {"$set": article_dict},
             upsert=True
         )
 
@@ -25,14 +29,20 @@ class ArticleRepository:
             return
 
         article_collection = daily_sun_db["news_articles"]
-        operations = [
-            UpdateOne(
-                {"slug": article.slug},
-                {"$set": article.to_dict()},
-                upsert=True
+        operations = []
+        for article in articles:
+            article_dict = article.to_dict()
+            # Remove _id from the update to avoid MongoDB error
+            article_dict.pop("_id", None)
+            
+            operations.append(
+                UpdateOne(
+                    {"slug": article.slug},
+                    {"$set": article_dict},
+                    upsert=True
+                )
             )
-            for article in articles
-        ]
+        
         if operations:
             article_collection.bulk_write(operations)
 

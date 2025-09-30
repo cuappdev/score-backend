@@ -7,3 +7,5 @@ requests
 pillow
 Flask-APScheduler
 python-dotenv
+pytz
+gunicorn
