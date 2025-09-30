@@ -102,6 +102,16 @@ def parse_args():
     )
     return parser.parse_args()
 
+# Only parse arguments when running directly (not when imported by gunicorn)
+if __name__ == "__main__":
+    args = parse_args()
+else:
+    # Default args when imported by gunicorn
+    class DefaultArgs:
+        no_scrape = False
+        no_daily_sun = False
+    args = DefaultArgs()
+
 def signal_handler(sig, frame):
     sys.exit(0)
 
