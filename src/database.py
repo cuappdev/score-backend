@@ -48,6 +48,7 @@ threading.Thread(target=keep_connection_alive, daemon=True).start()
 
 # Access the database
 db = client[os.getenv("MONGO_DB", "score_db")]
+daily_sun_db = client[os.getenv("DAILY_SUN_DB", "daily_sun_db")]
 
 
 def setup_database_indexes():
