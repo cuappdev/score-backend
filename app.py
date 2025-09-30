@@ -102,14 +102,22 @@ def parse_args():
     )
     return parser.parse_args()
 
-args = parse_args()
-
 def signal_handler(sig, frame):
     sys.exit(0)
 
 
 signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
+
+# Only parse arguments when running directly (not when imported by gunicorn)
+if __name__ == "__main__":
+    args = parse_args()
+else:
+    # Default args when imported by gunicorn
+    class DefaultArgs:
+        no_scrape = False
+        no_daily_sun = False
+    args = DefaultArgs()
 
 # Only run scraping tasks if not disabled
 if not args.no_scrape:
