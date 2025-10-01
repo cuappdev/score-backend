@@ -40,6 +40,9 @@ RESULT_TAG = ".sidearm-schedule-game-result"
 # The tag for the box score
 BOX_SCORE_TAG = ".sidearm-schedule-game-links-boxscore a"
 
+# The tag for the game ticket link
+GAME_TICKET_LINK = ".sidearm-schedule-game-links-tickets a"
+
 # HTML Tags
 TAG_TABLE = 'table'
 TAG_SECTION = 'section'
@@ -126,3 +129,5 @@ CHANNEL_ID = "UClSQOi2gnn9bi7mcgQrAVKA"
 
 # The maximum number of videos to retrieve
 VIDEO_LIMIT = 20
+
+

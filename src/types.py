@@ -88,6 +88,7 @@ class GameType(ObjectType):
         - `time`: The time of the game. (optional)
         - `box_score`: The box score of the game.
         - `score_breakdown`: The score breakdown of the game.
+        - `ticket_link`: The ticket link of the game. (optional)
     """
 
     id = String(required=False)
@@ -104,11 +105,11 @@ class GameType(ObjectType):
     score_breakdown = List(List(String), required=False)
     team = Field(TeamType, required=False)
     utc_date = String(required=False)
-
+    ticket_link = String(required=False)
     def __init__(
-        self, id, city, date, gender, location, opponent_id, result, sport, state, time, box_score=None, score_breakdown=None, utc_date=None
+        self, id, city, date, gender, location, opponent_id, result, sport, state, time, box_score=None, score_breakdown=None, utc_date=None, ticket_link=None
     ):
-        self.id = id
+        self.id = id    
         self.city = city
         self.date = date
         self.gender = gender
@@ -121,7 +122,7 @@ class GameType(ObjectType):
         self.box_score = box_score
         self.score_breakdown = score_breakdown
         self.utc_date = utc_date
-    
+        self.ticket_link = ticket_link
     @staticmethod
     def team_to_team_type(team_obj):
         if team_obj is None:
@@ -138,7 +139,7 @@ class GameType(ObjectType):
         # getting team id - team could be None in older data
         team_id = parent.team if parent.team is not None else parent.opponent_id
         if team_id and isinstance(team_id, str):
-            # promise to get team object once the dataloader is ready
+            # promise to get team object once    the dataloader is ready
             promise = info.context["team_loader"].load(team_id)
             return promise.then(GameType.team_to_team_type)
         return None

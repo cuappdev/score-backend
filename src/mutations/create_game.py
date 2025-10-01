@@ -17,6 +17,7 @@ class CreateGame(Mutation):
         box_score = String(required=False)
         score_breakdown = String(required=False)
         utc_date = String(required=False)
+        ticket_link = String(required=False)
 
     game = Field(lambda: GameType)
 
@@ -34,7 +35,8 @@ class CreateGame(Mutation):
         time=None,
         box_score=None,
         score_breakdown=None,
-        utc_date=None
+        utc_date=None,
+        ticket_link=None
     ):
         game_data = {
             "city": city,
@@ -48,7 +50,8 @@ class CreateGame(Mutation):
             "time": time,
             "box_score": box_score,
             "score_breakdown": score_breakdown,
-            "utc_date": utc_date
+            "utc_date": utc_date,
+            "ticket_link": ticket_link
         }
         new_game = GameService.create_game(game_data)
         return CreateGame(game=new_game)
