@@ -131,6 +131,56 @@ class GameRepository:
         return [Game.from_dict(game) for game in games]
 
     @staticmethod
+    def find_by_tournament_key_fields(city, date, gender, location, sport, state):
+        """
+        Find tournament games by location and date (excluding opponent_id).
+        This is used when we need to find a tournament game that might have a placeholder team.
+        Uses flexible matching to handle TBD/TBA values.
+        """
+        game_collection = db["game"]
+        
+        # Build flexible query that can handle TBD/TBA values
+        query = {
+            "date": date,
+            "gender": gender,
+            "sport": sport,
+        }
+        
+        # For city, state, and location, use flexible matching
+        # This allows finding games even when TBD/TBA values change to real values
+        city_conditions = []
+        if city:
+            city_conditions.append(city)
+        else:
+            city_conditions = [None]
+        
+        state_conditions = []
+        if state:
+            state_conditions.append(state)
+        else:
+            state_conditions = [None]
+        
+        location_conditions = []
+        if location:
+            location_conditions.append(location)
+        else:
+            location_conditions = [None]
+        
+        query["city"] = {"$in": city_conditions}
+        query["state"] = {"$in": state_conditions}
+        query["location"] = {"$in": location_conditions}
+        
+        games = list(game_collection.find(query))
+
+        if not games:
+            return None
+
+        if len(games) == 1:
+            return Game.from_dict(games[0])
+
+        return [Game.from_dict(game) for game in games]
+
+    @staticmethod
     def find_by_sport(sport):
         """
         Retrieves all games from the MongoDB collection by its sport.
@@ -156,3 +206,31 @@ class GameRepository:
         game_collection = db["game"]
         games = game_collection.find({"sport": sport, "gender": gender})
         return [Game.from_dict(game) for game in games]
+
+    @staticmethod
+    def find_games_by_sport_gender_after_date(sport, gender, after_date=None):
+        """
+        Find games for a specific sport and gender, optionally after a specific date.
+        This method returns raw game data without team information.
+        """
+        game_collection = db["game"]
+        
+        query = {
+            "sport": sport,
+            "gender": gender
+        }
+        
+        if after_date:
+            query["utc_date"] = {"$gt": after_date}
+        
+        games = game_collection.find(query)
+        return [Game.from_dict(game) for game in games]
+
+    @staticmethod
+    def delete_games_by_ids(game_ids):
+        """
+        Delete games by their IDs.
+        """
+        game_collection = db["game"]
+        result = game_collection.delete_many({"_id": {"$in": game_ids}})
+        return result.deleted_count

@@ -55,3 +55,43 @@ def get_dominant_color(image_url, white_threshold=200, black_threshold=50):
     except Exception as e:
         logging.error(f"Error in get_dominant_color for {image_url}: {e}")
         return default_color
+    
+def normalize_game_data(data: dict):
+    """
+    Normalize placeholder values like TBA/TBD into None.
+    """
+    placeholders = {"TBA", "TBD", "tba", "tbd"}
+
+    for field in ["time", "city", "state"]:
+        if data.get(field) in placeholders:
+            data[field] = None
+
+    return data
+
+def is_tournament_placeholder_team(team_name: str):
+    """
+    Check if a team name is a tournament placeholder.
+    """
+    
+    placeholder_team_names = [
+        "First Round", "Second Round", "Third Round", "Quarterfinals",
+        "College Cup Semifinals", "College Cup Championship Game",
+        "ECAC Hockey First Round", "ECAC Hockey Quarterfinals",
+        "ECAC Hockey Semifinals", "ECAC Hockey Championship Game",
+        "Regional Semifinals", "Regional Championship", "National Semifinals",
+        "TBD", "National Championship", "NCAA Wrestling Championships", "NCAA Northeast Regional CHampionships",
+        "NCAA Cross Country Championships", 
+    ]
+    return team_name in placeholder_team_names
+
+def is_cornell_loss(result: str):
+    """
+    Check if the result indicates a Cornell loss.
+    """
+    
+    if not result:
+        return False
+    
+    # Common loss indicators in result strings
+    loss_indicators = ["L", "Loss", "loss", "Defeated", "defeated"]
+    return any(indicator in result for indicator in loss_indicators)
