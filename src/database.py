@@ -66,6 +66,31 @@ def setup_database_indexes():
 
         # Index for sorting operations
         game_collection.create_index([("date", -1)], background=True)
+        
+        # Index to have unique games so we won't add duplicates
+        game_collection.create_index(
+            [
+                ("sport", 1),
+                ("gender", 1),
+                ("date", 1),
+                ("opponent_id", 1),
+                ("state", 1),
+            ],
+            unique=True,
+            background=True
+        )
+        
+        # Additional index for tournament games (without opponent_id)
+        game_collection.create_index(
+            [
+                ("sport", 1),
+                ("gender", 1),
+                ("date", 1),
+                ("city", 1),
+                ("state", 1),
+            ],
+            background=True
+        )
 
         print("✅ MongoDB indexes created successfully")
     except Exception as e:
