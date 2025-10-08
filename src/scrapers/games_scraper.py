@@ -153,7 +153,14 @@ def parse_schedule_page(url, sport, gender):
         else:
             game_data["box_score"] = None
             game_data["score_breakdown"] = None
-
+        
+        ticket_link_tag = game_item.select_one(GAME_TICKET_LINK)
+        ticket_link = (
+        ticket_link_tag["href"] if ticket_link_tag else None
+        )
+        game_data["ticket_link"] = (
+            ticket_link if ticket_link else None
+        )
         process_game_data(game_data)
 
 
@@ -270,7 +277,8 @@ def process_game_data(game_data):
             "utc_date": utc_date_str,
             "city": city,
             "location": location,
-            "state": state
+            "state": state,
+            "ticket_link": game_data["ticket_link"]
         }
         
         current_team = TeamService.get_team_by_id(curr_game.opponent_id)
@@ -295,7 +303,8 @@ def process_game_data(game_data):
         "time": game_time,
         "box_score": game_data["box_score"],
         "score_breakdown": game_data["score_breakdown"],
-        "utc_date": utc_date_str
+        "utc_date": utc_date_str,
+        "ticket_link": game_data["ticket_link"]
     }
     
     GameService.create_game(game_data)
