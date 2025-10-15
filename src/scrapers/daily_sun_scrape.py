@@ -3,7 +3,10 @@ import requests
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from ..services import ArticleService
+from ..utils.constants import ARTICLE_IMG_TAG
 import logging
+from bs4 import BeautifulSoup
+import base64
 
 load_dotenv()
 
@@ -36,9 +39,24 @@ def fetch_news():
                 )
                 article_url = f"https://cornellsun.com/article/{article['slug']}"
 
+                article_image = None
+                try:
+                    response = requests.get(
+                        article_url,
+                        headers={
+                            "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+                        }
+                    )
+                    response.raise_for_status()
+                    soup = BeautifulSoup(response.content, 'html.parser')
+                    img_tag = soup.select_one(ARTICLE_IMG_TAG)
+                    if img_tag and img_tag.get('src'):
+                        article_image=img_tag.get('src')
+                except Exception as e:
+                    logging.error(f"Error fetching news: {str(e)}")
                 article_doc = {
                     "title": article["headline"],
-                    "image": article["dominantMedia"]["title"] if article["dominantMedia"] else None,
+                    "image": article_image,
                     "sports_type": sports_type,
                     "published_at": published_at,
                     "url": article_url,
@@ -46,6 +64,7 @@ def fetch_news():
                     "created_at": datetime.now()
                 }
                 articles_to_store.append(article_doc)
+             
 
         if articles_to_store:
             ArticleService.create_articles_bulk(articles_to_store)

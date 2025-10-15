@@ -130,4 +130,4 @@ CHANNEL_ID = "UClSQOi2gnn9bi7mcgQrAVKA"
 # The maximum number of videos to retrieve
 VIDEO_LIMIT = 20
 
-
+ARTICLE_IMG_TAG = ".dom-art-container img"
