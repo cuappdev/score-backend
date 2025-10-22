@@ -225,6 +225,27 @@ class GameRepository:
         
         games = game_collection.find(query)
         return [Game.from_dict(game) for game in games]
+    
+    @staticmethod
+    def find_by_date(startDate, endDate):
+        """
+        Retrieve all games from the 'game' collection in MongoDB for games
+        between certain dates. 
+        """
+        game_collection = db["game"]
+        
+        start_str = startDate.isoformat()
+        endDate = endDate.isoformat()
+        
+        query = {
+            "utc_date": {
+                "$gte": start_str,
+                "$lte": endDate
+            }
+        }
+        
+        games = game_collection.find(query)
+        return [Game.from_dict(game) for game in games]
 
     @staticmethod
     def delete_games_by_ids(game_ids):
