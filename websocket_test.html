@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Game WebSocket</title>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .container {
+      border: 1px solid #ddd;
+      padding: 20px;
+      margin: 10px 0;
+      border-radius: 5px;
+    }
+
+    .status {
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 5px;
+    }
+
+    .connected {
+      background-color: #d4edda;
+      color: #155724;
+    }
+
+    .disconnected {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+
+    .log {
+      background-color: #f8f9fa;
+      border: 1px solid #dee2e6;
+      padding: 10px;
+      height: 300px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 12px;
+    }
+
+    button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      margin: 5px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    button:disabled {
+      background-color: #6c757d;
+      cursor: not-allowed;
+    }
+
+    input {
+      padding: 8px;
+      margin: 5px;
+      border: 1px solid #ddd;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>Live Game WebSocket Test</h1>
+
+  <div class="container">
+    <h3>Connection Status</h3>
+    <div id="status" class="status disconnected">Disconnected</div>
+    <button id="connectBtn" onclick="connect()">Connect</button>
+    <button id="disconnectBtn" onclick="disconnect()" disabled>Disconnect</button>
+    <button onclick="ping()">Ping</button>
+  </div>
+
+  <div class="container">
+    <h3>Game Subscription</h3>
+    <input type="text" id="gameId" placeholder="Game ID" value="68ddf5db6085081a77a6120a">
+    <button onclick="subscribe()">Subscribe</button>
+    <button onclick="unsubscribe()">Unsubscribe</button>
+    <button onclick="getGameInfo()">Get Game Info</button>
+    <button onclick="getSubscriptions()">Get Subscriptions</button>
+  </div>
+
+  <div class="container">
+    <h3>Live Updates</h3>
+    <div id="updates"></div>
+  </div>
+
+  <div class="container">
+    <h3>Log</h3>
+    <div id="log" class="log"></div>
+    <button onclick="clearLog()">Clear Log</button>
+  </div>
+
+  <script>
+    let socket = null;
+    let connected = false;
+
+    function log(message) {
+      const logDiv = document.getElementById('log');
+      const timestamp = new Date().toLocaleTimeString();
+      logDiv.innerHTML += `[${timestamp}] ${message}\n`;
+      logDiv.scrollTop = logDiv.scrollHeight;
+    }
+
+    function updateStatus(status, message) {
+      const statusDiv = document.getElementById('status');
+      statusDiv.textContent = message;
+      statusDiv.className = `status ${status}`;
+      connected = (status === 'connected');
+
+      document.getElementById('connectBtn').disabled = connected;
+      document.getElementById('disconnectBtn').disabled = !connected;
+    }
+
+    function connect() {
+      if (socket) {
+        socket.disconnect();
+      }
+
+      socket = io('http://localhost:8000');
+
+      socket.on('connect', function () {
+        log('Connected to server');
+        updateStatus('connected', 'Connected');
+      });
+
+      socket.on('disconnect', function () {
+        log('Disconnected from server');
+        updateStatus('disconnected', 'Disconnected');
+      });
+
+      socket.on('connected', function (data) {
+        log(`Connection confirmed: ${JSON.stringify(data)}`);
+      });
+
+      socket.on('game_update', function (data) {
+        log(`Game update: ${JSON.stringify(data, null, 2)}`);
+        displayUpdate(data);
+      });
+
+      socket.on('subscription_success', function (data) {
+        log(`Subscription successful: ${JSON.stringify(data)}`);
+      });
+
+      socket.on('unsubscription_success', function (data) {
+        log(`Unsubscription successful: ${JSON.stringify(data)}`);
+      });
+
+      socket.on('error', function (data) {
+        log(`Error: ${JSON.stringify(data)}`);
+      });
+
+      socket.on('subscriptions', function (data) {
+        log(`Current subscriptions: ${JSON.stringify(data)}`);
+      });
+
+      socket.on('game_info', function (data) {
+        log(`Game info: ${JSON.stringify(data, null, 2)}`);
+      });
+
+      socket.on('pong', function (data) {
+        log(`Pong: ${JSON.stringify(data)}`);
+      });
+    }
+
+    function disconnect() {
+      if (socket) {
+        socket.disconnect();
+        socket = null;
+      }
+    }
+
+    function ping() {
+      if (socket && connected) {
+        socket.emit('ping');
+        log('Ping sent');
+      } else {
+        log('Not connected');
+      }
+    }
+
+    function subscribe() {
+      const gameId = document.getElementById('gameId').value;
+      if (socket && connected && gameId) {
+        socket.emit('subscribe_game', { gameId: gameId });
+        log(`Subscribing to game: ${gameId}`);
+      } else {
+        log('Not connected or no game ID provided');
+      }
+    }
+
+    function unsubscribe() {
+      const gameId = document.getElementById('gameId').value;
+      if (socket && connected && gameId) {
+        socket.emit('unsubscribe_game', { gameId: gameId });
+        log(`Unsubscribing from game: ${gameId}`);
+      } else {
+        log('Not connected or no game ID provided');
+      }
+    }
+
+    function getGameInfo() {
+      const gameId = document.getElementById('gameId').value;
+      if (socket && connected && gameId) {
+        socket.emit('get_game_info', { gameId: gameId });
+        log(`Getting game info for: ${gameId}`);
+      } else {
+        log('Not connected or no game ID provided');
+      }
+    }
+
+    function getSubscriptions() {
+      if (socket && connected) {
+        socket.emit('get_subscriptions');
+        log('Getting current subscriptions');
+      } else {
+        log('Not connected');
+      }
+    }
+
+    function displayUpdate(data) {
+      const updatesDiv = document.getElementById('updates');
+      const timestamp = new Date().toLocaleTimeString();
+      updatesDiv.innerHTML = `
+                <div style="border: 1px solid #ddd; padding: 10px; margin: 5px 0; border-radius: 3px;">
+                    <strong>Update at ${timestamp}</strong><br>
+                    <strong>Game ID:</strong> ${data.gameId}<br>
+                    <strong>Live:</strong> ${data.data.isLive}<br>
+                    <strong>Last Updated:</strong> ${data.data.lastUpdated}<br>
+                    <strong>Box Score:</strong> ${JSON.stringify(data.data.boxScore, null, 2)}<br>
+                    <strong>Score Breakdown:</strong> ${JSON.stringify(data.data.scoreBreakdown, null, 2)}
+                </div>
+            ` + updatesDiv.innerHTML;
+    }
+
+    function clearLog() {
+      document.getElementById('log').innerHTML = '';
+    }
+
+    // Auto-connect on page load
+    window.onload = function () {
+      log('Page loaded. Click Connect to start.');
+    };
+  </script>
+</body>
+
+</html>

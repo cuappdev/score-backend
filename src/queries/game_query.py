@@ -1,5 +1,6 @@
 from graphene import ObjectType, String, Field, List, Int
 from src.services.game_service import GameService
+from src.services.live_game_service import LiveGameService
 from src.types import GameType
 
 
@@ -26,6 +27,7 @@ class GameQuery(ObjectType):
     games_by_sport_gender = List(
         GameType, sport=String(required=True), gender=String(required=True)
     )
+    live_games = List(GameType, description="Get all currently live games")
 
     def resolve_games(self, info, limit=100, offset=0):
         """
@@ -66,3 +68,9 @@ class GameQuery(ObjectType):
         Resolver for retrieving all games by its sport and gender.
         """
         return GameService.get_games_by_sport_gender(sport, gender)
+    
+    def resolve_live_games(self, info):
+        """
+        Resolver for retrieving all currently live games.
+        """
+        return LiveGameService.get_active_games()

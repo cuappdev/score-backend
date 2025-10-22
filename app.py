@@ -3,6 +3,7 @@ import argparse
 from flask import Flask, request, g
 import time
 from flask_graphql import GraphQLView
+from flask_socketio import SocketIO
 from graphene import Schema
 from src.schema import Query, Mutation
 from src.scrapers.games_scraper import fetch_game_schedule
@@ -10,6 +11,8 @@ from src.scrapers.youtube_stats import fetch_videos
 from src.scrapers.daily_sun_scrape import fetch_news
 from src.services.article_service import ArticleService
 from src.utils.team_loader import TeamLoader
+from src.websocket_manager import init_websocket_manager
+from src.websocket_events import register_websocket_events
 import signal
 import sys
 from dotenv import load_dotenv
@@ -18,6 +21,8 @@ load_dotenv()
 
 app = Flask(__name__)
 
+# Initialize SocketIO
+socketio = SocketIO(app, cors_allowed_origins="*", logger=True, engineio_logger=True)
 
 @app.before_request
 def start_timer():
@@ -87,6 +92,10 @@ app.add_url_rule(
     ),
 )
 
+# Initialize WebSocket manager and register events
+init_websocket_manager(socketio)
+register_websocket_events(socketio)
+
 # Setup command line arguments
 def parse_args():
     parser = argparse.ArgumentParser(description="Skip scraping tasks, for dev purposes.")
@@ -113,6 +122,12 @@ else:
     args = DefaultArgs()
 
 def signal_handler(sig, frame):
+    # Stop live game service before exiting
+    try:
+        from src.services.live_game_service import live_game_service
+        live_game_service.stop_polling()
+    except:
+        pass
     sys.exit(0)
 
 
@@ -132,6 +147,7 @@ else:
 # Only run scraping tasks if not disabled
 if not args.no_scrape:
     from flask_apscheduler import APScheduler
+    from src.services.live_game_service import live_game_service
     scheduler = APScheduler()
     scheduler.init_app(app)
     scheduler.start()
@@ -146,8 +162,14 @@ if not args.no_scrape:
         logging.info("Scraping YouTube videos...")
         fetch_videos()
 
+    @scheduler.task("interval", id="live_game_polling", seconds=30) # 30 seconds
+    def live_game_polling():
+        logging.info("Polling for live games...")
+        live_game_service._update_active_games()
+
     scrape_schedules()
     scrape_videos()
+    live_game_service.start_polling()
 
 if not args.no_daily_sun and not args.no_scrape:
     @scheduler.task("interval", id="scrape_daily_sun", seconds=3600)
@@ -165,4 +187,4 @@ if not args.no_daily_sun and not args.no_scrape:
 
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=8000)
+    socketio.run(app, debug=True, host="0.0.0.0", port=8000)

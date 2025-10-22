@@ -36,8 +36,14 @@ class GameService:
             raise ValueError(f"Opponent team with id {opponent_id} does not exist.")
 
         game = Game(**data)
-        GameRepository.insert(game)
-        return game
+        
+        try:
+            GameRepository.insert(game)
+            return game
+        except Exception as e:
+            if "duplicate key" in str(e).lower() or "E11000" in str(e):
+                return None
+            raise e
 
     @staticmethod
     def delete_game(game_id):

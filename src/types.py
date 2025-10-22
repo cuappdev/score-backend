@@ -1,4 +1,4 @@
-from graphene import ObjectType, Field, String, List, Int
+from graphene import ObjectType, Field, String, List, Int, Boolean
 from datetime import datetime
 
 class TeamType(ObjectType):
@@ -88,6 +88,8 @@ class GameType(ObjectType):
         - `time`: The time of the game. (optional)
         - `box_score`: The box score of the game.
         - `score_breakdown`: The score breakdown of the game.
+        - `is_live`: Whether the game is currently live.
+        - `last_updated`: Timestamp of last live update.
     """
 
     id = String(required=False)
@@ -104,9 +106,11 @@ class GameType(ObjectType):
     score_breakdown = List(List(String), required=False)
     team = Field(TeamType, required=False)
     utc_date = String(required=False)
+    is_live = Boolean(required=False)
+    last_updated = String(required=False)
 
     def __init__(
-        self, id, city, date, gender, location, opponent_id, result, sport, state, time, box_score=None, score_breakdown=None, utc_date=None
+        self, id, city, date, gender, location, opponent_id, result, sport, state, time, box_score=None, score_breakdown=None, utc_date=None, is_live=None, last_updated=None
     ):
         self.id = id
         self.city = city
@@ -121,6 +125,8 @@ class GameType(ObjectType):
         self.box_score = box_score
         self.score_breakdown = score_breakdown
         self.utc_date = utc_date
+        self.is_live = is_live
+        self.last_updated = last_updated
     
     @staticmethod
     def team_to_team_type(team_obj):

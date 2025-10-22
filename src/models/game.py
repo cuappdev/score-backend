@@ -17,6 +17,8 @@ class Game:
         - `time`            The time of the game. (optional)
         - `box_score`       The scoring summary of the game (optional)
         - `score_breakdown` The scoring breakdown of the game (optional)
+        - `is_live`         Whether the game is currently live (optional)
+        - `last_updated`    Timestamp of last live update (optional)
     """
 
     def __init__(
@@ -35,6 +37,8 @@ class Game:
         score_breakdown=None,
         team=None,
         utc_date=None,
+        is_live=None,
+        last_updated=None,
     ):
         self.id = id if id else str(ObjectId())
         self.city = city
@@ -50,6 +54,8 @@ class Game:
         self.score_breakdown = score_breakdown
         self.team = team
         self.utc_date = utc_date
+        self.is_live = is_live
+        self.last_updated = last_updated
 
     def to_dict(self):
         """
@@ -70,6 +76,8 @@ class Game:
             "score_breakdown": self.score_breakdown,
             "team": self.team,
             "utc_date": self.utc_date,
+            "is_live": self.is_live,
+            "last_updated": self.last_updated,
         }
 
     @staticmethod
@@ -92,4 +100,6 @@ class Game:
             score_breakdown=data.get("score_breakdown"),
             team=data.get("team"),
             utc_date=data.get("utc_date"),
+            is_live=data.get("is_live"),
+            last_updated=data.get("last_updated"),
         )
