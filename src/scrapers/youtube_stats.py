@@ -41,7 +41,7 @@ def get_video_duration(video_id):
             return convert_iso_duration(duration_iso)
         return None
     except Exception as e:
-        print(f"Error getting duration for video {video_id}: {e}")
+        print(f"Error getting video duration: {e}")
         return None
 
 
