@@ -155,6 +155,7 @@ class YoutubeVideoType(ObjectType):
         - thumbnail: The URL of the video's thumbnail.
         - url: The URL to the video.
         - published_at: The date and time the video was published.
+        - duration: The duration of the video (optional).
     """
     id = String(required=False)
     title = String(required=True)
@@ -163,6 +164,7 @@ class YoutubeVideoType(ObjectType):
     b64_thumbnail = String(required=True)
     url = String(required=True)
     published_at = String(required=True)
+    duration = String(required=False)
 
     def __init__(self, **kwargs):
         for key, value in kwargs.items():
