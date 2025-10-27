@@ -101,6 +101,13 @@ class GameService:
         Retrieves all game by its sport and gender.
         """
         return GameRepository.find_by_sport_gender(sport, gender)
+    
+    @staticmethod
+    def get_games_by_date(startDate, endDate):
+        """
+        Retrieves all games between these two dates.
+        """
+        return GameRepository.find_by_date(startDate, endDate)
 
     @staticmethod
     def get_tournament_games_by_sport_gender(sport, gender, after_date=None):
