@@ -1,7 +1,7 @@
 from src.database import daily_sun_db
 from src.models.article import Article
 from pymongo import UpdateOne
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 class ArticleRepository:
     @staticmethod
@@ -52,7 +52,9 @@ class ArticleRepository:
         Retrieve articles from the last N days, sorted by published_at descending.
         """
         article_collection = daily_sun_db["news_articles"]
-        query = {"published_at": {"$gte": datetime.now() - timedelta(days=limit_days)}}
+        # Calculate threshold as ISO 8601 string
+        threshold = (datetime.now(timezone.utc) - timedelta(days=limit_days)).isoformat().replace('+00:00', 'Z')
+        query = {"published_at": {"$gte": threshold}}
         articles = article_collection.find(query).sort("published_at", -1)
         return [Article.from_dict(article) for article in articles]
 
@@ -62,9 +64,11 @@ class ArticleRepository:
         Retrieve articles by sports_type from the last N days, sorted by published_at descending.
         """
         article_collection = daily_sun_db["news_articles"]
+        # Calculate threshold as ISO 8601 string
+        threshold = (datetime.now(timezone.utc) - timedelta(days=limit_days)).isoformat().replace('+00:00', 'Z')
         query = {
             "sports_type": sports_type,
-            "published_at": {"$gte": datetime.now() - timedelta(days=limit_days)}
+            "published_at": {"$gte": threshold}
         }
         articles = article_collection.find(query).sort("published_at", -1)
         return [Article.from_dict(article) for article in articles]
@@ -75,5 +79,7 @@ class ArticleRepository:
         Delete articles older than N days, sorted by published_at descending.
         """
         article_collection = daily_sun_db["news_articles"]
-        query = {"published_at": {"$lt": datetime.now() - timedelta(days=limit_days)}}
+        # Calculate threshold as ISO 8601 string
+        threshold = (datetime.now(timezone.utc) - timedelta(days=limit_days)).isoformat().replace('+00:00', 'Z')
+        query = {"published_at": {"$lt": threshold}}
         article_collection.delete_many(query)
