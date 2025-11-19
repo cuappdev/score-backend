@@ -14,11 +14,10 @@ class CreateArticle(Mutation):
     article = Field(lambda: ArticleType)
 
     def mutate(self, info, title, sports_type, published_at, url, slug, image=None):
-        from datetime import datetime
         article_data = {
             "title": title,
             "sports_type": sports_type,
-            "published_at": datetime.fromisoformat(published_at),
+            "published_at": published_at,  # Already in ISO 8601 format
             "url": url,
             "slug": slug,
             "image": image

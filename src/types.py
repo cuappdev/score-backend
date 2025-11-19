@@ -190,7 +190,4 @@ class ArticleType(ObjectType):
 
     def __init__(self, **kwargs):
         for key, value in kwargs.items():
-            if key == "published_at" and isinstance(value, datetime):
-                setattr(self, key, value.isoformat())
-            else:
-                setattr(self, key, value)
+            setattr(self, key, value)
