@@ -3,6 +3,7 @@ import requests
 from PIL import Image
 from io import BytesIO
 from collections import Counter
+import re
 
 
 def get_dominant_color(image_url, white_threshold=200, black_threshold=50):
@@ -95,6 +96,53 @@ def is_cornell_loss(result: str):
     # Common loss indicators in result strings
     loss_indicators = ["L", "Loss", "loss", "Defeated", "defeated"]
     return any(indicator in result for indicator in loss_indicators)
+
+def extract_sport_from_title(title):
+    """
+    Extracts the sport type from a YouTube video title.
+    
+    Args:
+        title (str): The title of the YouTube video
+        
+    Returns:
+        str: The sport type if found, None otherwise
+    """
+    if not title:
+        return None
+    
+    title_lower = title.lower()
+    
+    sport_patterns = [
+        # Ice Hockey
+        (r"ice\s+hockey", "Ice Hockey"),
+        (r"women'?s\s+ice\s+hockey", "Ice Hockey"),
+        (r"men'?s\s+ice\s+hockey", "Ice Hockey"),
+        # Field Hockey
+        (r"field\s+hockey", "Field Hockey"),
+        # Hockey
+        (r"\bhockey\b", "Ice Hockey"),
+        # Basketball
+        (r"basketball", "Basketball"),
+        # Football
+        (r"\bfootball\b", "Football"),
+        # Soccer
+        (r"\bsoccer\b", "Soccer"),
+        # Volleyball
+        (r"volleyball", "Volleyball"),
+        # Wrestling
+        (r"wrestling", "Wrestling"),
+        # Sprint Football
+        (r"sprint\s+football", "Sprint Football"),
+    ]
+    
+    for pattern, sport_name in sport_patterns:
+        if re.search(pattern, title_lower):
+            return sport_name
+    
+    if "ice" in title_lower and ("hockey" in title_lower or "cornell" in title_lower):
+        return "Ice Hockey"
+    
+    return None
 
 def extract_sport_type_from_title(title: str):
     """
