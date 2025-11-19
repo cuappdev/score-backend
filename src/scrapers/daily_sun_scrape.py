@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 from ..services import ArticleService
 from ..utils.constants import ARTICLE_IMG_TAG
+from ..utils.helpers import extract_sport_type_from_title
 import logging
 from bs4 import BeautifulSoup
 import base64
@@ -35,11 +36,10 @@ def fetch_news():
             published_at_dt = published_at_dt.replace(tzinfo=timezone.utc)
             published_at = published_at_dt.isoformat().replace('+00:00', 'Z')
             
-            if published_at_dt >= three_days_ago:
-                sports_type = next(
-                    (tag["name"] for tag in article["tags"] if tag["name"] not in ["Sports", "Top Stories"]),
-                    "General"
-                )
+            if published_at >= three_days_ago:
+                # Extract sport type from title
+                title = article["headline"]
+                sports_type = extract_sport_type_from_title(title)
                 article_url = f"https://cornellsun.com/article/{article['slug']}"
 
                 article_image = None
