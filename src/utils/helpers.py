@@ -144,3 +144,46 @@ def extract_sport_from_title(title):
     
     return None
 
+def extract_sport_type_from_title(title: str):
+    """
+    Extract the sport type from an article title by matching against known sports.
+    
+    Args:
+        title (str): The article title to analyze
+        
+    Returns:
+        str: The sport name if found, otherwise "sports" as default
+    """
+    from .constants import SPORT_URLS
+    
+    if not title:
+        return "sports"
+    
+    # Get all unique sport names from SPORT_URLS
+    sport_names = set()
+    for sport_data in SPORT_URLS.values():
+        sport_name = sport_data["sport"].strip()
+        if sport_name:
+            sport_names.add(sport_name)
+    
+    # Sort by length (longest first) to match "Swimming & Diving" before "Swimming"
+    sport_names_sorted = sorted(sport_names, key=len, reverse=True)
+    
+    title_lower = title.lower()
+    
+    for sport_name in sport_names_sorted:
+        if sport_name.lower() in title_lower:
+            return sport_name
+    
+    # Special mappings for common variations in titles
+    # Only checked if no exact match found above
+    # e.g., "Hockey" in title should match "Ice Hockey" in sport names
+    special_mappings = {
+        "hockey": "Ice Hockey",  # "Men's Hockey" or "Women's Hockey" → "Ice Hockey"
+    }
+    
+    for keyword, sport_name in special_mappings.items():
+        if keyword in title_lower and sport_name in sport_names:
+            return sport_name
+    
+    return "sports"

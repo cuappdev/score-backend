@@ -1,9 +1,10 @@
 import os
 import requests
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 from ..services import ArticleService
 from ..utils.constants import ARTICLE_IMG_TAG
+from ..utils.helpers import extract_sport_type_from_title
 import logging
 from bs4 import BeautifulSoup
 import base64
@@ -23,20 +24,22 @@ def fetch_news():
         response.raise_for_status()
         data = response.json()
 
-        # Current date and 3-day threshold
-        current_date = datetime.now()
+        # Current date and 3-day threshold (in UTC)
+        current_date = datetime.now(timezone.utc)
         three_days_ago = current_date - timedelta(days=3)
 
         # Process articles
         articles_to_store = []
         for article in data.get("articles", []):
-            published_at = datetime.strptime(article["published_at"], "%Y-%m-%d %H:%M:%S")
+            published_at_dt = datetime.strptime(article["published_at"], "%Y-%m-%d %H:%M:%S")
+            # Assume the timezone is UTC and convert to ISO 8601 format string
+            published_at_dt = published_at_dt.replace(tzinfo=timezone.utc)
+            published_at = published_at_dt.isoformat().replace('+00:00', 'Z')
             
             if published_at >= three_days_ago:
-                sports_type = next(
-                    (tag["name"] for tag in article["tags"] if tag["name"] not in ["Sports", "Top Stories"]),
-                    "General"
-                )
+                # Extract sport type from title
+                title = article["headline"]
+                sports_type = extract_sport_type_from_title(title)
                 article_url = f"https://cornellsun.com/article/{article['slug']}"
 
                 article_image = None
@@ -61,7 +64,7 @@ def fetch_news():
                     "published_at": published_at,
                     "url": article_url,
                     "slug": article["slug"],
-                    "created_at": datetime.now()
+                    "created_at": datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
                 }
                 articles_to_store.append(article_doc)
              
