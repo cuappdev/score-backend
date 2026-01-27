@@ -29,7 +29,7 @@ class YoutubeVideo:
 
     def to_dict(self):
         """
-        Converts the YoutbeVideo object to a dictionary format for MongoDB storage.
+        Converts the YoutubeVideo object to a dictionary format for MongoDB storage.
         """
         return {
             "_id": self.id,

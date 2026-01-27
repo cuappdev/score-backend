@@ -5,7 +5,7 @@ IMAGE_PREFIX = "https://dxbhsrqyrr690.cloudfront.net/sidearm.nextgen.sites/corne
 BASE_URL = "https://cornellbigred.com"
 
 # The tag for each game
-GAME_TAG = ".sidearm-schedule-game"
+GAME_TAG = ".sidearm-calendar-schedule-event"
 
 # The tag for each opponent name with a
 OPPONENT_NAME_TAG_A = ".sidearm-schedule-game-opponent-name a"
@@ -29,10 +29,7 @@ TIME_TAG = ".sidearm-schedule-game-opponent-date span + span"
 LOCATION_TAG = ".sidearm-schedule-game-location"
 
 # The prefix for the sports schedules
-SCHEDULE_PREFIX = "https://cornellbigred.com/sports/"
-
-# The postfix for the sports schedules
-SCHEDULE_POSTFIX = "/schedule"
+SCHEDULE_PREFIX = "https://cornellbigred.com/calendar?vtype=list/"
 
 # The tag for each result
 RESULT_TAG = ".sidearm-schedule-game-result"
@@ -119,6 +116,9 @@ SPORT_URLS = {
     "womens-track-and-field": {"sport": "Track & Field", "gender": "Womens"},
     "womens-volleyball": {"sport": "Volleyball", "gender": "Womens"},
 }
+
+MENS_EXCLUSIVE_SPORTS = ["wrestling", "football", "baseball", "golf", "sprint football"]
+WOMENS_EXCLUSIVE_SPORTS = ["softball", "fencing", "equestrian", "volleyball", "sailing", "field hockey", "gymnastics"]
 
 IMAGE_BASE_URL = (
     "https://dxbhsrqyrr690.cloudfront.net/sidearm.nextgen.sites/cornellbigred.com"

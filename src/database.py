@@ -13,8 +13,8 @@ if os.getenv("STAGE") == "local":
 else:
     file_name = "/etc/ssl/ca-certificate.crt"
     use_tls = True
-
 # Initialize MongoDB client
+print(f"Using TLS: {use_tls}")
 if use_tls:
     client = MongoClient(
         os.getenv("MONGO_URI"),

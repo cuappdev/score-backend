@@ -9,7 +9,7 @@ import base64
 import re
 from src.database import db
 import threading
-
+from datetime import date, timedelta, datetime
 
 def extract_season_years(page_title):
     """
@@ -45,25 +45,18 @@ def fetch_game_schedule():
     Scrape the game schedule from the given URLs in parallel using threads.
     Each sport is scraped in its own thread for improved performance.
     """
-    threads = []
-    
-    for sport, data in SPORT_URLS.items():
-        url = SCHEDULE_PREFIX + sport + SCHEDULE_POSTFIX
+    url = SCHEDULE_PREFIX
 
-        # create thread for each sport
-        thread = threading.Thread(
-            target=parse_schedule_page,
-            args=(url, data["sport"], data["gender"]),
-            name=f"Scraper-{sport}"
-        )
-        thread.daemon = True
-        threads.append(thread)
-        thread.start()
-    
-    for thread in threads:
-        thread.join()
+    # create single thread for all sports
+    thread = threading.Thread(
+        target=parse_schedule_page,
+        args=(url,),
+        name=f"Scraper"
+    )
+    thread.daemon = True
+    thread.start()
 
-def parse_schedule_page(url, sport, gender):
+def parse_schedule_page(url):
     """
     Parse the game schedule page and store the data in the database.
     Args:
@@ -71,98 +64,151 @@ def parse_schedule_page(url, sport, gender):
         sport (str): The sport of the games.
         gender (str): The gender of the games.
     """
-    response = requests.get(url)
-    soup = BeautifulSoup(response.content, "html.parser")
+    today = date.today()
+    days_since_saturday = (today.weekday() - 5) % 7
 
-    page_title = soup.title.text.strip() if soup.title else ""
-    season_years = extract_season_years(page_title)
+    # go back to most recent saturday
+    last_saturday = today - timedelta(days=days_since_saturday)
 
-    for game_item in soup.select(GAME_TAG):
-        game_data = {}
-        game_data["gender"] = gender
-        game_data["sport"] = sport
+    params = {
+        "type": "events",
+        "sport": 0,
+        "location": "all",
+        "date": last_saturday.strftime("%Y-%m-%dT00:00:00"),
+    }
 
-        opponent_name_tag = game_item.select_one(OPPONENT_NAME_TAG_A)
-        opponent_name = (
-            opponent_name_tag.text.strip()
-            if opponent_name_tag
-            else game_item.select_one(OPPONENT_NAME_TAG).text.strip()
-        )
-        game_data["opponent_name"] = opponent_name
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+        "Accept": "application/json, text/javascript, */*; q=0.01",
+        "Referer": "https://cornellbigred.com/calendar?vtype=list/",
+    }
 
-        opponent_logo_tag = game_item.select_one(OPPONENT_LOGO_TAG)
-        opponent_logo = (
-            opponent_logo_tag[OPPONENT_LOGO_URL_ATTR] if opponent_logo_tag else None
-        )
-        game_data["opponent_logo"] = (
-            BASE_URL + opponent_logo if opponent_logo else None
-        )
+    url = "https://cornellbigred.com/services/responsive-calendar.ashx"
+    r = requests.get(url, params=params, headers=headers, timeout=10)
+    data = r.json()
 
-        date_tag = game_item.select_one(DATE_TAG)
-        if date_tag:
-            date_text = date_tag.get_text(strip=True)
-        else:
-            date_text = ""
+    for day in data:
+        if day.get("events"):
+            for game in day["events"]:
+                game_data = {}
+               
+                sport_info = game.get("sport", {})
+                sport_title = sport_info.get("title", "")
+                
+                if not sport_title:
+                    continue  
+               
+                sport_lower = sport_title.lower()
+                if "women's" in sport_lower:
+                    game_data["gender"] = "Womens"
+                    sport_name = re.sub(r"women's\s*", "", sport_title, flags=re.IGNORECASE).strip()
+                elif "men's" in sport_lower:
+                    game_data["gender"] = "Mens"
+                    sport_name = re.sub(r"men's\s*", "", sport_title, flags=re.IGNORECASE).strip()
+                elif "women" in sport_lower:
+                    game_data["gender"] = "Womens"
+                    sport_name = re.sub(r"women\s*", "", sport_title, flags=re.IGNORECASE).strip()
+                elif "men" in sport_lower:
+                    game_data["gender"] = "Mens"
+                    sport_name = re.sub(r"men\s*", "", sport_title, flags=re.IGNORECASE).strip()
+                else:
+                    sport_shortname = sport_info.get("shortname", "").lower()
+                    sport_title_lower = sport_title.lower()
 
-        time_tag = game_item.select_one(TIME_TAG)
-        time_text = time_tag.text.strip() if time_tag else None
-        
-        game_year = infer_game_year(date_text, season_years)
-
-        # keep old date field for now
-        if date_text and game_year:
-            full_date_text = f"{date_text} {game_year}"
-            game_data["date"] = full_date_text
-            game_data["utc_date"] = convert_to_utc(full_date_text, time_text)
-        else:
-            game_data["date"] = date_text
-            game_data["utc_date"] = None
-
-        game_data["time"] = time_text
-
-        location_tag = game_item.select_one(LOCATION_TAG)
-        game_data["location"] = location_tag.text.strip() if location_tag else None
-
-        result_tag = game_item.select_one(RESULT_TAG)
-        if result_tag:
-            game_data["result"] = result_tag.text.strip().replace("\n", "")
-        else:
-            game_data["result"] = None
-            
-        box_score_tag = game_item.select_one(BOX_SCORE_TAG)
-        if box_score_tag:
-            box_score_link = box_score_tag["href"]
-            game_details = scrape_game(f"{BASE_URL}{box_score_link}", sport.lower())
-            if game_details.get('error') == 'Sport parser not found':
+                    is_mens_exclusive = False
+                    for exclusive in MENS_EXCLUSIVE_SPORTS:
+                        exclusive_lower = exclusive.lower()
+                        if exclusive_lower in sport_title_lower or exclusive_lower in sport_shortname:
+                            game_data["gender"] = "Mens"
+                            sport_name = sport_title
+                            is_mens_exclusive = True
+                            break
+                    
+                    if not is_mens_exclusive:
+                        is_womens_exclusive = False
+                        for exclusive in WOMENS_EXCLUSIVE_SPORTS:
+                            exclusive_lower = exclusive.lower()
+                            if exclusive_lower in sport_title_lower or exclusive_lower in sport_shortname:
+                                game_data["gender"] = "Womens"
+                                sport_name = sport_title
+                                is_womens_exclusive = True
+                                break
+                        
+                        if not is_womens_exclusive:
+                            game_data["gender"] = "Mens"
+                            sport_name = sport_title
+                
+                game_data["sport"] = sport_name.strip()
+                
+                opponent = game.get("opponent", {})
+                game_data["opponent_name"] = opponent.get("title", "")
+                
+                if not game_data["opponent_name"]:
+                    continue
+                
+                opponent_image = opponent.get("image", {})
+                if opponent_image:
+                    image_path = opponent_image.get("path", "")
+                    image_filename = opponent_image.get("filename", "")
+                    if image_path and image_filename:
+                        path = image_path.lstrip("/")
+                        game_data["opponent_logo"] = f"{BASE_URL}/{path}/{image_filename}"
+                    else:
+                        game_data["opponent_logo"] = None
+                else:
+                    game_data["opponent_logo"] = None
+                  
+                event_date = game.get("date", "")
+                event_time = game.get("time", "")
+                
+                if event_date:
+                    # Parse ISO date format: "2026-01-24T12:00:00"
+                    try:
+                        date_clean = event_date.split('.')[0].replace('Z', '')
+                        dt = datetime.strptime(date_clean, "%Y-%m-%dT%H:%M:%S")
+                        game_data["date"] = f"{dt.strftime('%b')} {dt.day} ({dt.strftime('%a')}) {dt.strftime('%Y')}"                 
+                        game_data["utc_date"] = convert_to_utc(game_data["date"], event_time)
+                    except Exception as e:
+                        print(f"Error parsing date {event_date}: {e}")
+                        game_data["date"] = event_date
+                        game_data["utc_date"] = None
+                else:
+                    game_data["date"] = ""
+                    game_data["utc_date"] = None
+                
+                game_data["time"] = event_time if event_time else None
+               
+                game_data["location"] = game.get("location", "")
+               
+                result_info = game.get("result", {})
+                if result_info and isinstance(result_info, dict):
+                    status = result_info.get("status", "")
+                    team_score = result_info.get("team_score", "")
+                    opponent_score = result_info.get("opponent_score", "")
+                 
+                    if status:
+                        if team_score is not None and opponent_score is not None:
+                            game_data["result"] = f"{status} {team_score}-{opponent_score}"
+                        else:
+                            game_data["result"] = status
+                    else:
+                        game_data["result"] = None
+                else:
+                    game_data["result"] = None
+                
+                box_score_info = None
+                if result_info and isinstance(result_info, dict):
+                    box_score_info = result_info.get("boxscore")
+              
+                media = game.get("media", {})
+                ticket_info = media.get("tickets", {})
+                game_data["ticket_link"] = ticket_info.get("url", "") if ticket_info and ticket_info.get("url") else None
+                
+                # skip for now
                 game_data["box_score"] = None
                 game_data["score_breakdown"] = None
-            else:
-                game_data["box_score"] = game_details.get("scoring_summary")
-                game_data["score_breakdown"] = game_details.get("scores")
-
-                if sport in ["Baseball", "Football", "Lacrosse"]:
-                    location_data = game_data["location"].split("\n") if game_data["location"] else [""]
-                    geo_location = location_data[0]
-                    is_home_game = "Ithaca" in geo_location
-                    
-                    if is_home_game and game_data["box_score"]:
-                        for event in game_data["box_score"]:
-                            if "cor_score" in event and "opp_score" in event:
-                                event["cor_score"], event["opp_score"] = event["opp_score"], event["cor_score"]
-
-        else:
-            game_data["box_score"] = None
-            game_data["score_breakdown"] = None
-        
-        ticket_link_tag = game_item.select_one(GAME_TICKET_LINK)
-        ticket_link = (
-        ticket_link_tag["href"] if ticket_link_tag else None
-        )
-        game_data["ticket_link"] = (
-            ticket_link if ticket_link else None
-        )
-        process_game_data(game_data)
-
+                
+                process_game_data(game_data)
 
 def process_game_data(game_data):
     """
@@ -306,5 +352,5 @@ def process_game_data(game_data):
         "utc_date": utc_date_str,
         "ticket_link": game_data["ticket_link"]
     }
-    
+
     GameService.create_game(game_data)
