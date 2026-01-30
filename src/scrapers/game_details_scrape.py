@@ -31,16 +31,20 @@ def extract_teams_and_scores(box_score_section, sport):
     period_scores = []
 
     for row in score_table.find(TAG_TBODY).find_all(TAG_TR):
-        team_name_cell = row.find(TAG_TH) if sport == 'ice hockey' else row.find(TAG_TD)
+        # Check if team name is in <th> (some sports) or first <td> (other sports)
+        team_name_cell = row.find(TAG_TH)
         if team_name_cell:
+            # Team name is in <th>, all <td> elements are period scores
             team_name = team_name_cell.text.strip().replace("Winner", "").strip()
-            team_name = ' '.join(team_name.split())
+            scores = [td.text.strip() for td in row.find_all(TAG_TD)]
         else:
-            team_name = "Unknown"
+            # Team name is in first <td>, remaining <td> elements are period scores
+            team_name_cell = row.find(TAG_TD)
+            team_name = team_name_cell.text.strip().replace("Winner", "").strip() if team_name_cell else "Unknown"
+            scores = [td.text.strip() for td in row.find_all(TAG_TD)[1:]]
         
+        team_name = ' '.join(team_name.split())
         team_names.append(team_name)
-        scores = [td.text.strip() for td in row.find_all(TAG_TD)[1:]]
-        scores = scores[:-1] if sport == 'basketball' else scores
         period_scores.append(scores)
 
     return team_names, period_scores
