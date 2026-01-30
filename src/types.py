@@ -156,6 +156,7 @@ class YoutubeVideoType(ObjectType):
         - url: The URL to the video.
         - published_at: The date and time the video was published.
         - duration: The duration of the video (optional).
+        - sportsType: The sport type extracted from the video title.
     """
     id = String(required=False)
     title = String(required=True)
@@ -165,10 +166,18 @@ class YoutubeVideoType(ObjectType):
     url = String(required=True)
     published_at = String(required=True)
     duration = String(required=False)
+    sportsType = String(required=False)
 
     def __init__(self, **kwargs):
         for key, value in kwargs.items():
             setattr(self, key, value)
+
+    def resolve_sportsType(video, info):
+        """
+        Resolver to extract sport type from the video title.
+        """
+        from src.utils.helpers import extract_sport_from_title
+        return extract_sport_from_title(video.title)
 
 class ArticleType(ObjectType):
     """

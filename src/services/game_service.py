@@ -2,6 +2,7 @@ from src.repositories.game_repository import GameRepository
 from src.models.game import Game
 from src.services.team_service import TeamService
 from src.utils.helpers import is_tournament_placeholder_team
+from pymongo.errors import DuplicateKeyError
 
 
 class GameService:
@@ -36,8 +37,11 @@ class GameService:
             raise ValueError(f"Opponent team with id {opponent_id} does not exist.")
 
         game = Game(**data)
-        GameRepository.insert(game)
-        return game
+        try:
+            GameRepository.insert(game)
+            return game
+        except DuplicateKeyError:
+            return None
 
     @staticmethod
     def delete_game(game_id):
