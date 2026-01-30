@@ -36,7 +36,7 @@ def fetch_news():
             published_at_dt = published_at_dt.replace(tzinfo=timezone.utc)
             published_at = published_at_dt.isoformat().replace('+00:00', 'Z')
             
-            if published_at >= three_days_ago:
+            if published_at_dt >= three_days_ago:
                 # Extract sport type from title
                 title = article["headline"]
                 sports_type = extract_sport_type_from_title(title)
