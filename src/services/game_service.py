@@ -4,7 +4,6 @@ from src.services.team_service import TeamService
 from src.utils.helpers import is_tournament_placeholder_team
 from pymongo.errors import DuplicateKeyError
 
-
 class GameService:
     @staticmethod
     def get_all_games(limit=100, offset=0):
