@@ -315,3 +315,4 @@ def fetch_live_games():
     Each sport is scraped in its own thread for improved performance.
     """
     threads = []
+    
