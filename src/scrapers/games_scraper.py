@@ -391,4 +391,4 @@ def parse_live_page(url):
     for game in live_games:
         print(game)
         print("--------------------------------")
-        update_live_game(game)
+        GameService.update_live_game(game)
