@@ -308,3 +308,10 @@ def process_game_data(game_data):
     }
     
     GameService.create_game(game_data)
+
+def fetch_live_games():
+    """
+    Fetch live games from the given URLs in parallel using threads.
+    Each sport is scraped in its own thread for improved performance.
+    """
+    threads = []

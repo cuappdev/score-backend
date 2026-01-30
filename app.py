@@ -5,7 +5,7 @@ import time
 from flask_graphql import GraphQLView
 from graphene import Schema
 from src.schema import Query, Mutation
-from src.scrapers.games_scraper import fetch_game_schedule
+from src.scrapers.games_scraper import fetch_game_schedule, fetch_live_games
 from src.scrapers.youtube_stats import fetch_videos
 from src.scrapers.daily_sun_scrape import fetch_news
 from src.services.article_service import ArticleService
@@ -163,6 +163,11 @@ if not args.no_daily_sun and not args.no_scrape:
     scrape_daily_sun()
     cleanse_daily_sun_db()
 
+@scheduler.task("interval", id="scrape_live_games", seconds=30)
+def scrape_live_games():
+    logging.info("Scraping live games...")
+    fetch_live_games()
+scrape_live_games()
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=8000)
