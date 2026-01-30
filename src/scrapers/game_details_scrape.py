@@ -43,6 +43,10 @@ def extract_teams_and_scores(box_score_section, sport):
             team_name = team_name_cell.text.strip().replace("Winner", "").strip() if team_name_cell else "Unknown"
             scores = [td.text.strip() for td in row.find_all(TAG_TD)[1:]]
         
+        # Basketball box score includes a "Records" column at the end - exclude it
+        if sport == 'basketball' and scores:
+            scores = scores[:-1]
+        
         team_name = ' '.join(team_name.split())
         team_names.append(team_name)
         period_scores.append(scores)
@@ -63,7 +67,7 @@ def soccer_summary(box_score_section):
                 event = row.find_all(TAG_TD)[2]
                 desc = event.find_all(TAG_SPAN)[-1].text.strip()
                 
-                if team == "COR" or team == "CU":
+                if team == "COR" or team == "CU" or team == "CRNL":
                     cornell_score += 1
                 else:
                     opp_score += 1
@@ -224,6 +228,36 @@ def baseball_summary(box_score_section):
         summary = [{"message": "No scoring events in this game."}]
     return summary
 
+# def basketball_summary(box_score_section):
+#     summary = []
+#     scoring_section = box_score_section.find(TAG_SECTION, {ATTR_ARIA_LABEL: LABEL_SCORING_SUMMARY})
+#     if scoring_section:
+#         scoring_rows = scoring_section.find(TAG_TBODY)
+#         if scoring_rows:
+#             cornell_score = 0
+#             opp_score = 0
+#             for row in scoring_rows.find_all(TAG_TR):
+#                 time = row.find_all(TAG_TD)[0].text.strip()
+#                 team = row.find_all(TAG_TD)[1].find(TAG_IMG)[ATTR_ALT]
+#                 event = row.find_all(TAG_TD)[2]
+#                 desc = event.find_all(TAG_SPAN)[-1].text.strip()
+                
+#                 if team == "COR" or team == "CU" or team == "CRNL":
+#                     cornell_score += 1
+#                 else:
+#                     opp_score += 1
+                    
+#                 summary.append({
+#                     'time': time, 
+#                     'team': team, 
+#                     'description': desc,
+#                     'cor_score': cornell_score,
+#                     'opp_score': opp_score
+#                 })
+#     if not summary:
+#         summary = [{"message": "No scoring events in this game."}]
+#     return summary
+
 def scrape_game(url, sport):
     soup = fetch_page(url)
     box_score_section = soup.find(class_=CLASS_BOX_SCORE) if sport in ['baseball', 'softball'] else soup.find(id=ID_BOX_SCORE)
@@ -237,6 +271,7 @@ def scrape_game(url, sport):
         'field hockey': (lambda: extract_teams_and_scores(box_score_section, 'field hockey'), field_hockey_summary),
         'lacrosse': (lambda: extract_teams_and_scores(box_score_section, 'lacrosse'), lacrosse_summary),
         'baseball': (lambda: extract_teams_and_scores(box_score_section, 'baseball'), baseball_summary),
+        'basketball': (lambda: extract_teams_and_scores(box_score_section, 'basketball'), lambda _: []),
     }
 
     extract_teams_func, summary_func = sport_parsers.get(sport, (None, None))
