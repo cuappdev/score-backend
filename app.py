@@ -13,6 +13,7 @@ from src.utils.team_loader import TeamLoader
 import signal
 import sys
 from dotenv import load_dotenv
+from flask_apscheduler import APScheduler
 
 load_dotenv()
 
@@ -128,14 +129,11 @@ else:
         no_scrape = False
         no_daily_sun = False
     args = DefaultArgs()
-
+scheduler = APScheduler()
+scheduler.init_app(app)
+scheduler.start()
 # Only run scraping tasks if not disabled
 if not args.no_scrape:
-    from flask_apscheduler import APScheduler
-    scheduler = APScheduler()
-    scheduler.init_app(app)
-    scheduler.start()
-
     @scheduler.task("interval", id="scrape_schedules", seconds=43200) # 12 hours
     def scrape_schedules():
         logging.info("Scraping game schedules...")

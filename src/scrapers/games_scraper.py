@@ -9,7 +9,7 @@ import base64
 import re
 from src.database import db
 import threading
-
+from datetime import date, timedelta, datetime, timezone
 
 def extract_season_years(page_title):
     """
@@ -39,6 +39,36 @@ def infer_game_year(date_text, season_years):
         else:
             return second_year
     return first_year
+
+
+def is_date_today(date_str):
+    """
+    Returns True if the given ISO date string (e.g. "2025-12-28T00:00:00")
+    is the current date. Compares only year, month, day; ignores time.
+    """
+    if not date_str:
+        return False
+    try:
+        date_clean = date_str.split(".")[0].replace("Z", "")
+        event_date = datetime.strptime(date_clean, "%Y-%m-%dT%H:%M:%S").date()
+        return event_date == date.today()
+    except (ValueError, TypeError):
+        return False
+
+
+def is_match_time_passed(time_str):
+    """
+    Returns True if the current time is past the given time (today).
+    time_str: e.g. "4:00 p.m." — assumes today's date.
+    """
+    if not time_str:
+        return False
+    today_str = date.today().strftime("%b %d %Y")
+    match_utc = convert_to_utc(today_str, time_str)
+    if match_utc is None:
+        return False
+    return datetime.now(timezone.utc) >= match_utc
+
 
 def fetch_game_schedule():
     """
@@ -309,10 +339,56 @@ def process_game_data(game_data):
     
     GameService.create_game(game_data)
 
+def get_live_games(data):
+    """
+    Get live games from the given data.
+    """
+    today_games = [day for day in data if is_date_today(day.get("date", ""))][0].get("events", [])
+    return [game for game in today_games if is_match_time_passed(game.get("time", ""))]
+
 def fetch_live_games():
     """
     Fetch live games from the given URLs in parallel using threads.
     Each sport is scraped in its own thread for improved performance.
     """
-    threads = []
-    
+    url = LIVE_PREFIX
+
+    # create single thread for all sports
+    thread = threading.Thread(
+        target=parse_live_page,
+        args=(url,),
+        name=f"Scraper"
+    )
+    thread.daemon = True
+    thread.start()
+
+def parse_live_page(url):
+    today = date.today()
+    days_since_saturday = (today.weekday() - 5) % 7
+
+    # go back to most recent saturday
+    last_saturday = today - timedelta(days=days_since_saturday)
+
+    params = {
+        "type": "events",
+        "sport": 0,
+        "location": "all",
+        "date": last_saturday.strftime("%Y-%m-%dT00:00:00"),
+    }
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+        "Accept": "application/json, text/javascript, */*; q=0.01",
+        "Referer": LIVE_PREFIX,
+    }
+
+    url = "https://cornellbigred.com/services/responsive-calendar.ashx"
+    r = requests.get(url, params=params, headers=headers, timeout=10)
+    data = r.json()
+
+    # Keep only days where the date is today (compare date string to current date)
+    live_games = get_live_games(data)
+    for game in live_games:
+        print(game)
+        print("--------------------------------")
+        update_live_game(game)

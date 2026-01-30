@@ -31,6 +31,9 @@ LOCATION_TAG = ".sidearm-schedule-game-location"
 # The prefix for the sports schedules
 SCHEDULE_PREFIX = "https://cornellbigred.com/sports/"
 
+# The prefix for the live games
+LIVE_PREFIX = "https://cornellbigred.com/sports/calendar?vtype=list/"
+
 # The postfix for the sports schedules
 SCHEDULE_POSTFIX = "/schedule"
 

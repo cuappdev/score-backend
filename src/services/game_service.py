@@ -159,3 +159,13 @@ class GameService:
         """
         deleted_count = GameService.delete_tournament_games_by_sport_gender(sport, gender, loss_date)
         return deleted_count
+    
+    @staticmethod
+    def update_live_game(game):
+        """
+        Update a live game.
+        """
+        # update the game with the new score, box score, and score breakdown
+        # GameRepository.update_by_id(game.id, game)
+
+        # notify all subscribers
