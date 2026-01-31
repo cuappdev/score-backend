@@ -41,7 +41,7 @@ class GameQuery(ObjectType):
         return GameService.get_game_by_id(id)
 
     def resolve_game_by_data(
-        self, city, date, gender, opponent_id, sport, state, time, location=None
+        self, info, city, date, gender, opponent_id, sport, state, time, location=None
     ):
         """
         Resolver for retrieving a game by its data.
