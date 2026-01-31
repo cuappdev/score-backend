@@ -3,7 +3,8 @@ from src.models.game import Game
 from src.services.team_service import TeamService
 from src.utils.helpers import is_tournament_placeholder_team
 from pymongo.errors import DuplicateKeyError
-
+import requests
+from bs4 import BeautifulSoup
 
 class GameService:
     @staticmethod
@@ -167,5 +168,25 @@ class GameService:
         """
         # update the game with the new score, box score, and score breakdown
         # GameRepository.update_by_id(game.id, game)
+        if game["media"]["stats"] is not None and game["media"]["stats"]["url"] != None:
+            stats_url = game["media"]["stats"]["url"]
+            # handle sidearmstats for now
+            if not stats_url.startswith("https://cornellbigred.com/sidearmstats/") and not stats_url.startswith("http://www.sidearmstats.com"):
+                return
 
+            sport = stats_url.split("/")[4]
+            params = {
+                "detail": "full"
+            }
+
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+                "Accept": "application/json, text/javascript, */*; q=0.01",
+                "Referer": stats_url,
+            }
+
+            url = f"https://sidearmstats.com/cornell/{sport}/game.json"
+            r = requests.get(url, params=params, headers=headers, timeout=10)
+            data = r.json()
+            
         # notify all subscribers

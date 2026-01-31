@@ -389,6 +389,4 @@ def parse_live_page(url):
     # Keep only days where the date is today (compare date string to current date)
     live_games = get_live_games(data)
     for game in live_games:
-        print(game)
-        print("--------------------------------")
         GameService.update_live_game(game)

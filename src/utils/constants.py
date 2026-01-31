@@ -123,6 +123,20 @@ SPORT_URLS = {
     "womens-volleyball": {"sport": "Volleyball", "gender": "Womens"},
 }
 
+SIDEARM_SPORTS = {
+    "wsoc" : {"sport": "Soccer", "gender": "Womens"},
+    "football": {"sport": "Football", "gender": "Mens"},
+    "msoc" : {"sport": "Soccer", "gender": "Mens"},
+    "sfootball": {"sport": "Sprint Football", "gender": "Mens"},
+    "whockey": {"sport": "Ice Hockey", "gender": "Womens"},
+    "mhockey": {"sport": "Ice Hockey", "gender": "Mens"},
+    "mbball": {"sport": "Basketball", "gender": "Mens"},
+    "wbball": {"sport": "Basketball", "gender": "Womens"}
+}
+
+# The URL for the squash stats
+SQUASH_STATS_URL = "https://api.ussquash.com/resources/leagues/scorecards/live"
+
 IMAGE_BASE_URL = (
     "https://dxbhsrqyrr690.cloudfront.net/sidearm.nextgen.sites/cornellbigred.com"
 )
