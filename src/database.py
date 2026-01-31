@@ -53,6 +53,8 @@ daily_sun_db = client[os.getenv("DAILY_SUN_DB", "daily_sun_db")]
 
 def setup_database_indexes():
     """Set up MongoDB indexes for optimal query performance"""
+    from pymongo.errors import DuplicateKeyError, OperationFailure
+
     try:
         game_collection = db["game"]
 
@@ -66,20 +68,24 @@ def setup_database_indexes():
 
         # Index for sorting operations
         game_collection.create_index([("date", -1)], background=True)
-        
-        # Index to have unique games so we won't add duplicates
-        game_collection.create_index(
-            [
-                ("sport", 1),
-                ("gender", 1),
-                ("date", 1),
-                ("opponent_id", 1),
-                ("state", 1),
-            ],
-            unique=True,
-            background=True
-        )
-        
+
+        try:
+            game_collection.create_index(
+                [
+                    ("sport", 1),
+                    ("gender", 1),
+                    ("date", 1),
+                    ("opponent_id", 1),
+                    ("city", 1),
+                    ("state", 1),
+                    ("location", 1),
+                ],
+                unique=True,
+                background=True
+            )
+        except (DuplicateKeyError, OperationFailure) as e:
+            print(f"Warning: Could not create unique index due to existing duplicates: {e}")
+
         # Additional index for tournament games (without opponent_id)
         game_collection.create_index(
             [
