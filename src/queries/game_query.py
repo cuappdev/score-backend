@@ -20,7 +20,6 @@ class GameQuery(ObjectType):
         sport=String(required=True),
         state=String(required=True),
         time=String(required=True),
-        ticket_link=String(required=False),
     )
     games_by_sport = List(GameType, sport=String(required=True))
     games_by_gender = List(GameType, gender=String(required=True))
@@ -42,13 +41,13 @@ class GameQuery(ObjectType):
         return GameService.get_game_by_id(id)
 
     def resolve_game_by_data(
-        self, info, city, date, gender, opponent_id, sport, state, time, location=None, ticket_link=None
+        self, city, date, gender, opponent_id, sport, state, time, location=None
     ):
         """
         Resolver for retrieving a game by its data.
         """
         return GameService.get_game_by_data(
-            city, date, gender, location, opponent_id, sport, state, time, ticket_link
+            city, date, gender, location, opponent_id, sport, state, time
         )
 
     def resolve_games_by_sport(self, info, sport):
