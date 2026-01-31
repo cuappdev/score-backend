@@ -152,7 +152,7 @@ class YoutubeVideoType(ObjectType):
         - id: The YouTube video ID (optional).
         - title: The title of the video.
         - description: The description of the video.
-        - thumbnail: The URL of the video's thumbnail.
+        - thumbnail: The URL of the video's thumbnail. (optional)
         - url: The URL to the video.
         - published_at: The date and time the video was published.
         - duration: The duration of the video (optional).
@@ -162,7 +162,7 @@ class YoutubeVideoType(ObjectType):
     title = String(required=True)
     description = String(required=True)
     thumbnail = String(required=True)
-    b64_thumbnail = String(required=True)
+    b64_thumbnail = String(required=False)
     url = String(required=True)
     published_at = String(required=True)
     duration = String(required=False)

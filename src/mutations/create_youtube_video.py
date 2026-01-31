@@ -8,14 +8,14 @@ class CreateYoutubeVideo(Mutation):
         title = String(required=True)
         description = String(required=True)
         thumbnail = String(required=True)
-        b64_thumbnail = String(required=True)
+        b64_thumbnail = String(required=False)
         url = String(required=True)
         published_at = String(required=True)
         duration = String(required=True)
 
     youtube_video = Field(lambda: YoutubeVideoType)
 
-    def mutate(self, info, id, title, description, thumbnail, b64_thumbnail, url, published_at, duration):
+    def mutate(self, info, id, title, description, thumbnail, url, published_at, duration, b64_thumbnail=None):
         video_data = {
             "id": id,
             "title": title,
