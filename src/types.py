@@ -1,5 +1,5 @@
 from graphene import ObjectType, Field, String, List, Int
-from src.services import TeamService
+from datetime import datetime
 
 class TeamType(ObjectType):
     """
@@ -88,6 +88,7 @@ class GameType(ObjectType):
         - `time`: The time of the game. (optional)
         - `box_score`: The box score of the game.
         - `score_breakdown`: The score breakdown of the game.
+        - `ticket_link`: The ticket link of the game. (optional)
     """
 
     id = String(required=False)
@@ -104,11 +105,11 @@ class GameType(ObjectType):
     score_breakdown = List(List(String), required=False)
     team = Field(TeamType, required=False)
     utc_date = String(required=False)
-
+    ticket_link = String(required=False)
     def __init__(
-        self, id, city, date, gender, location, opponent_id, result, sport, state, time, box_score=None, score_breakdown=None, utc_date=None
+        self, id, city, date, gender, location, opponent_id, result, sport, state, time, box_score=None, score_breakdown=None, utc_date=None, ticket_link=None
     ):
-        self.id = id
+        self.id = id    
         self.city = city
         self.date = date
         self.gender = gender
@@ -121,7 +122,7 @@ class GameType(ObjectType):
         self.box_score = box_score
         self.score_breakdown = score_breakdown
         self.utc_date = utc_date
-    
+        self.ticket_link = ticket_link
     @staticmethod
     def team_to_team_type(team_obj):
         if team_obj is None:
@@ -138,7 +139,7 @@ class GameType(ObjectType):
         # getting team id - team could be None in older data
         team_id = parent.team if parent.team is not None else parent.opponent_id
         if team_id and isinstance(team_id, str):
-            # promise to get team object once the dataloader is ready
+            # promise to get team object once    the dataloader is ready
             promise = info.context["team_loader"].load(team_id)
             return promise.then(GameType.team_to_team_type)
         return None
@@ -151,17 +152,50 @@ class YoutubeVideoType(ObjectType):
         - id: The YouTube video ID (optional).
         - title: The title of the video.
         - description: The description of the video.
-        - thumbnail: The URL of the video's thumbnail.
+        - thumbnail: The URL of the video's thumbnail. (optional)
         - url: The URL to the video.
         - published_at: The date and time the video was published.
+        - duration: The duration of the video (optional).
+        - sportsType: The sport type extracted from the video title.
     """
     id = String(required=False)
     title = String(required=True)
     description = String(required=True)
     thumbnail = String(required=True)
-    b64_thumbnail = String(required=True)
+    b64_thumbnail = String(required=False)
     url = String(required=True)
     published_at = String(required=True)
+    duration = String(required=False)
+    sportsType = String(required=False)
+
+    def __init__(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+    def resolve_sportsType(video, info):
+        """
+        Resolver to extract sport type from the video title.
+        """
+        from src.utils.helpers import extract_sport_from_title
+        return extract_sport_from_title(video.title)
+
+class ArticleType(ObjectType):
+    """
+    A GraphQL type representing a news article.
+
+    Attributes:
+        - title: The title of the article
+        - image: The filename of the article's main image
+        - sports_type: The specific sport category
+        - published_at: The publication date
+        - url: The URL to the full article
+    """
+    id = String()
+    title = String(required=True)
+    image = String()
+    sports_type = String(required=True)
+    published_at = String(required=True)
+    url = String(required=True)
 
     def __init__(self, **kwargs):
         for key, value in kwargs.items():

@@ -1,4 +1,4 @@
-from graphene import ObjectType, String, Field, List, Int
+from graphene import ObjectType, String, Field, List, Int, DateTime
 from src.services.game_service import GameService
 from src.types import GameType
 
@@ -20,12 +20,14 @@ class GameQuery(ObjectType):
         sport=String(required=True),
         state=String(required=True),
         time=String(required=True),
+        ticket_link=String(required=False),
     )
     games_by_sport = List(GameType, sport=String(required=True))
     games_by_gender = List(GameType, gender=String(required=True))
     games_by_sport_gender = List(
         GameType, sport=String(required=True), gender=String(required=True)
     )
+    games_by_date = List(GameType, startDate=DateTime(required=True), endDate=DateTime(required=True))
 
     def resolve_games(self, info, limit=100, offset=0):
         """
@@ -40,13 +42,13 @@ class GameQuery(ObjectType):
         return GameService.get_game_by_id(id)
 
     def resolve_game_by_data(
-        self, info, city, date, gender, opponent_id, sport, state, time, location=None
+        self, info, city, date, gender, opponent_id, sport, state, time, location=None, ticket_link=None
     ):
         """
         Resolver for retrieving a game by its data.
         """
         return GameService.get_game_by_data(
-            city, date, gender, location, opponent_id, sport, state, time
+            city, date, gender, location, opponent_id, sport, state, time, ticket_link
         )
 
     def resolve_games_by_sport(self, info, sport):
@@ -66,3 +68,9 @@ class GameQuery(ObjectType):
         Resolver for retrieving all games by its sport and gender.
         """
         return GameService.get_games_by_sport_gender(sport, gender)
+    
+    def resolve_games_by_date(self, info, startDate, endDate):
+        """
+        Resolver for retrieving games by date.
+        """
+        return GameService.get_games_by_date(startDate, endDate)

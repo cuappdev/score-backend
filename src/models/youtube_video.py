@@ -12,10 +12,11 @@ class YoutubeVideo:
         - `thumbnail`       The thumbnail of the video, as a URL string pointing to a `.jpg` file.
         - `url`             The URL of the video.
         - `published_at`    The date and time the video was published.
+        - `duration`        The duration of the video.
     """
 
     def __init__(
-        self, title, description, thumbnail, b64_thumbnail, url, published_at, id=None
+        self, title, description, thumbnail, b64_thumbnail, url, published_at, duration=None, id=None
     ):
         self.id = id if id else str(ObjectId())
         self.title = title
@@ -24,6 +25,7 @@ class YoutubeVideo:
         self.b64_thumbnail = b64_thumbnail
         self.url = url
         self.published_at = published_at
+        self.duration = duration
 
     def to_dict(self):
         """
@@ -37,6 +39,7 @@ class YoutubeVideo:
             "b64_thumbnail": self.b64_thumbnail,
             "url": self.url,
             "published_at": self.published_at,
+            "duration": self.duration,
         }
 
     @staticmethod
@@ -52,4 +55,5 @@ class YoutubeVideo:
             b64_thumbnail=data.get("b64_thumbnail"),
             url=data.get("url"),
             published_at=data.get("published_at"),
+            duration=data.get("duration"),
         )

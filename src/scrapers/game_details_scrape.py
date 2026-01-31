@@ -31,16 +31,24 @@ def extract_teams_and_scores(box_score_section, sport):
     period_scores = []
 
     for row in score_table.find(TAG_TBODY).find_all(TAG_TR):
-        team_name_cell = row.find(TAG_TH) if sport == 'ice hockey' else row.find(TAG_TD)
+        # Check if team name is in <th> (some sports) or first <td> (other sports)
+        team_name_cell = row.find(TAG_TH)
         if team_name_cell:
+            # Team name is in <th>, all <td> elements are period scores
             team_name = team_name_cell.text.strip().replace("Winner", "").strip()
-            team_name = ' '.join(team_name.split())
+            scores = [td.text.strip() for td in row.find_all(TAG_TD)]
         else:
-            team_name = "Unknown"
+            # Team name is in first <td>, remaining <td> elements are period scores
+            team_name_cell = row.find(TAG_TD)
+            team_name = team_name_cell.text.strip().replace("Winner", "").strip() if team_name_cell else "Unknown"
+            scores = [td.text.strip() for td in row.find_all(TAG_TD)[1:]]
         
+        # Basketball box score includes a "Records" column at the end - exclude it
+        if sport == 'basketball' and scores:
+            scores = scores[:-1]
+        
+        team_name = ' '.join(team_name.split())
         team_names.append(team_name)
-        scores = [td.text.strip() for td in row.find_all(TAG_TD)[1:]]
-        scores = scores[:-1] if sport == 'basketball' else scores
         period_scores.append(scores)
 
     return team_names, period_scores
@@ -59,7 +67,7 @@ def soccer_summary(box_score_section):
                 event = row.find_all(TAG_TD)[2]
                 desc = event.find_all(TAG_SPAN)[-1].text.strip()
                 
-                if team == "COR" or team == "CU":
+                if team == "COR" or team == "CU" or team == "CRNL":
                     cornell_score += 1
                 else:
                     opp_score += 1
@@ -220,6 +228,36 @@ def baseball_summary(box_score_section):
         summary = [{"message": "No scoring events in this game."}]
     return summary
 
+# def basketball_summary(box_score_section):
+#     summary = []
+#     scoring_section = box_score_section.find(TAG_SECTION, {ATTR_ARIA_LABEL: LABEL_SCORING_SUMMARY})
+#     if scoring_section:
+#         scoring_rows = scoring_section.find(TAG_TBODY)
+#         if scoring_rows:
+#             cornell_score = 0
+#             opp_score = 0
+#             for row in scoring_rows.find_all(TAG_TR):
+#                 time = row.find_all(TAG_TD)[0].text.strip()
+#                 team = row.find_all(TAG_TD)[1].find(TAG_IMG)[ATTR_ALT]
+#                 event = row.find_all(TAG_TD)[2]
+#                 desc = event.find_all(TAG_SPAN)[-1].text.strip()
+                
+#                 if team == "COR" or team == "CU" or team == "CRNL":
+#                     cornell_score += 1
+#                 else:
+#                     opp_score += 1
+                    
+#                 summary.append({
+#                     'time': time, 
+#                     'team': team, 
+#                     'description': desc,
+#                     'cor_score': cornell_score,
+#                     'opp_score': opp_score
+#                 })
+#     if not summary:
+#         summary = [{"message": "No scoring events in this game."}]
+#     return summary
+
 def scrape_game(url, sport):
     soup = fetch_page(url)
     box_score_section = soup.find(class_=CLASS_BOX_SCORE) if sport in ['baseball', 'softball'] else soup.find(id=ID_BOX_SCORE)
@@ -233,6 +271,7 @@ def scrape_game(url, sport):
         'field hockey': (lambda: extract_teams_and_scores(box_score_section, 'field hockey'), field_hockey_summary),
         'lacrosse': (lambda: extract_teams_and_scores(box_score_section, 'lacrosse'), lacrosse_summary),
         'baseball': (lambda: extract_teams_and_scores(box_score_section, 'baseball'), baseball_summary),
+        'basketball': (lambda: extract_teams_and_scores(box_score_section, 'basketball'), lambda _: []),
     }
 
     extract_teams_func, summary_func = sport_parsers.get(sport, (None, None))

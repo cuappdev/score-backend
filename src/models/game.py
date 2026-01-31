@@ -17,6 +17,7 @@ class Game:
         - `time`            The time of the game. (optional)
         - `box_score`       The scoring summary of the game (optional)
         - `score_breakdown` The scoring breakdown of the game (optional)
+        - 'ticket_link'    The ticket link for the game (optional)
     """
 
     def __init__(
@@ -35,6 +36,7 @@ class Game:
         score_breakdown=None,
         team=None,
         utc_date=None,
+        ticket_link=None,
     ):
         self.id = id if id else str(ObjectId())
         self.city = city
@@ -50,6 +52,7 @@ class Game:
         self.score_breakdown = score_breakdown
         self.team = team
         self.utc_date = utc_date
+        self.ticket_link = ticket_link
 
     def to_dict(self):
         """
@@ -70,6 +73,7 @@ class Game:
             "score_breakdown": self.score_breakdown,
             "team": self.team,
             "utc_date": self.utc_date,
+            "ticket_link": self.ticket_link,
         }
 
     @staticmethod
@@ -92,4 +96,5 @@ class Game:
             score_breakdown=data.get("score_breakdown"),
             team=data.get("team"),
             utc_date=data.get("utc_date"),
+            ticket_link=data.get("ticket_link"),
         )

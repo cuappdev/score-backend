@@ -4,10 +4,10 @@ from src.services import GameService, TeamService
 from src.utils.convert_to_utc import convert_to_utc
 from src.utils.constants import *
 from src.scrapers.game_details_scrape import scrape_game
-from src.utils.helpers import get_dominant_color
+from src.utils.helpers import get_dominant_color, normalize_game_data, is_tournament_placeholder_team, is_cornell_loss
 import base64
 import re
-import html
+from src.database import db
 import threading
 
 
@@ -153,7 +153,14 @@ def parse_schedule_page(url, sport, gender):
         else:
             game_data["box_score"] = None
             game_data["score_breakdown"] = None
-
+        
+        ticket_link_tag = game_item.select_one(GAME_TICKET_LINK)
+        ticket_link = (
+        ticket_link_tag["href"] if ticket_link_tag else None
+        )
+        game_data["ticket_link"] = (
+            ticket_link if ticket_link else None
+        )
         process_game_data(game_data)
 
 
@@ -164,6 +171,8 @@ def process_game_data(game_data):
     Args:
         game_data (dict): A dictionary containing the game data.
     """
+    
+    game_data = normalize_game_data(game_data)
     location_data = game_data["location"].split("\n")
     geo_location = location_data[0]
     if (",") not in geo_location:
@@ -232,16 +241,28 @@ def process_game_data(game_data):
             if str(final_box_cor_score) != str(cor_final) or str(final_box_opp_score) != str(opp_final):
                 game_data["score_breakdown"] = game_data["score_breakdown"][::-1]
 
-    # finds any existing game with the same key fields regardless of time
-    curr_game = GameService.get_game_by_key_fields(
+    # Try to find by tournament key fields to handle placeholder teams
+    curr_game = GameService.get_game_by_tournament_key_fields(
         city,
         game_data["date"],
         game_data["gender"],
         location,
-        team.id,
         game_data["sport"],
         state
     )
+    
+    # If no tournament game found, try the regular lookup with opponent_id
+    if not curr_game:
+        curr_game = GameService.get_game_by_key_fields(
+            city,
+            game_data["date"],
+            game_data["gender"],
+            location,
+            team.id,
+            game_data["sport"],
+            state
+        )
+
     if isinstance(curr_game, list):
         if curr_game:
             curr_game = curr_game[0]
@@ -253,8 +274,20 @@ def process_game_data(game_data):
             "result": game_data["result"],
             "box_score": game_data["box_score"],
             "score_breakdown": game_data["score_breakdown"],
-            "utc_date": utc_date_str
+            "utc_date": utc_date_str,
+            "city": city,
+            "location": location,
+            "state": state,
+            "ticket_link": game_data["ticket_link"]
         }
+        
+        current_team = TeamService.get_team_by_id(curr_game.opponent_id)
+        if current_team and is_tournament_placeholder_team(current_team.name):
+            updates["opponent_id"] = team.id
+            
+            if is_cornell_loss(game_data["result"]) and game_data["utc_date"]:
+                GameService.handle_tournament_loss(game_data["sport"], game_data["gender"], game_data["utc_date"])
+                        
         GameService.update_game(curr_game.id, updates)
         return
         
@@ -270,7 +303,8 @@ def process_game_data(game_data):
         "time": game_time,
         "box_score": game_data["box_score"],
         "score_breakdown": game_data["score_breakdown"],
-        "utc_date": utc_date_str
+        "utc_date": utc_date_str,
+        "ticket_link": game_data["ticket_link"]
     }
-        
+    
     GameService.create_game(game_data)
