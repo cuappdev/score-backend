@@ -1,3 +1,4 @@
+import re
 from src.database import db
 from src.models.team import Team
 from bson.objectid import ObjectId
@@ -79,6 +80,26 @@ class TeamRepository:
         team_collection = db["team"]
         team_data = team_collection.find_one({"name": name})
         return Team.from_dict(team_data) if team_data else None
+
+    @staticmethod
+    def find_by_name_containing(name, case_sensitive=False):
+        """
+        Fetch teams whose name contains the given substring.
+
+        Args:
+            name (str): The substring to search for in team names.
+            case_sensitive (bool): If True, match case; default False.
+
+        Returns:
+            List[Team]: The list of matching teams.
+        """
+        if not name:
+            return []
+        team_collection = db["team"]
+        pattern = re.escape(name)
+        options = "" if case_sensitive else "i"
+        cursor = team_collection.find({"name": {"$regex": pattern, "$options": options}})
+        return [Team.from_dict(t) for t in cursor]
 
     @staticmethod
     def find_by_ids(team_ids):

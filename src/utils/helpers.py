@@ -4,7 +4,10 @@ from PIL import Image
 from io import BytesIO
 from collections import Counter
 import re
+from datetime import datetime, timezone
+from typing import Dict
 
+logger = logging.getLogger(__name__)
 
 def get_dominant_color(image_url, white_threshold=200, black_threshold=50):
     """
@@ -187,3 +190,64 @@ def extract_sport_type_from_title(title: str):
             return sport_name
     
     return "sports"
+
+def sidearm_dates_match(db_date: str, sidearm_date: str) -> bool:
+        """
+        Check if two date strings represent the same date.
+        
+        Args:
+            db_date: Date from our database
+            sidearm_date: Date from Sidearm API
+            
+        Returns:
+            True if dates match, False otherwise
+        """
+        try:
+            # Parse Sidearm date (format: "9/29/2025")
+            sidearm_dt = datetime.strptime(sidearm_date, "%m/%d/%Y")
+            
+            numToMonth = {
+                "1": "Jan",
+                "2": "Feb",
+                "3": "Mar",
+                "4": "Apr",
+                "5": "May",
+                "6": "Jun",
+                "8": "Aug",
+                "9": "Sep",
+                "10": "Oct",
+                "11": "Nov",
+                "12": "Dec"
+            }
+            
+            year = str(sidearm_dt.year)
+            month = numToMonth[str(sidearm_dt.month)]
+            date = str(sidearm_dt.day)
+            
+            # This is simple check - might need to improve this
+            if month in db_date and date in db_date and year in db_date:
+                return True
+            
+            return False
+        except Exception as e:
+            logger.error(f"Error comparing dates: {str(e)}")
+            return False
+
+def is_game_active(game_data: Dict) -> bool:
+        """
+        Check if a game is currently active (started but not completed).
+        
+        Args:
+            game_data: Game data from Sidearm API
+            
+        Returns:
+            True if game is active, False otherwise
+        """
+        if not game_data or 'Game' not in game_data:
+            return False
+        
+        game = game_data['Game']
+        return (
+            game.get('HasStarted', False) and 
+            not game.get('IsComplete', False)
+        )

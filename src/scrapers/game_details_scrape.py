@@ -291,11 +291,3 @@ def scrape_game(url, sport):
         }
     
     return {"error": "Sport parser not found"}
-
-def scrape_live_game(url):
-    soup = fetch_page(url)
-    box_score_section = soup.find(class_=CLASS_BOX_SCORE)
-    if not box_score_section:
-        return {"error": "Box score section not found"}
-    
-    return box_score_section
