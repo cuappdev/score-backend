@@ -5,7 +5,7 @@ from io import BytesIO
 from collections import Counter
 import re
 from datetime import datetime, timezone
-from typing import Dict
+from typing import Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -251,3 +251,73 @@ def is_game_active(game_data: Dict) -> bool:
             game.get('HasStarted', False) and 
             not game.get('IsComplete', False)
         )
+
+def convert_play_to_our_format(self, play: Dict, game: Dict) -> Optional[Dict]:
+        """
+        Convert a Sidearm play to our box score format.
+        
+        Args:
+            play: Play data from Sidearm API
+            game: Game data from Sidearm API
+            
+        Returns:
+            Play in our format or None if conversion fails
+        """
+        try:
+            # Extract basic play information
+            description = play.get('Narrative', '')
+            time = convert_seconds_to_time(play.get('ClockSeconds', 0))
+            period = play.get('Period', 1)
+            
+            # Determine which team scored
+            home_team = game.get('HomeTeam', {})
+            visiting_team = game.get('VisitingTeam', {})
+
+            scoring_team = play.get('Team', "")
+            
+            # Check if it's a scoring play
+            is_scoring_play = any(keyword in description.upper() for keyword in ['GOAL', 'SCORE', 'TOUCHDOWN', 'FIELD GOAL', 'SHOT'])
+            
+            if not is_scoring_play:
+                return None
+            
+            # Determine team and scores
+            if (scoring_team == "Visiting Team" and visiting_team.get('Name', '').upper() == 'CORNELL') or (scoring_team == "Home Team" and home_team.get('Name', '').upper() == 'CORNELL'):
+                team = 'COR'
+                # Get current scores
+                cor_score = home_team.get('Score', 0) if home_team.get('Name', '').upper() == 'CORNELL' else visiting_team.get('Score', 0)
+                opp_score = visiting_team.get('Score', 0) if home_team.get('Name', '').upper() == 'CORNELL' else home_team.get('Score', 0)
+            else:
+                team = 'OPP'
+                # Get current scores
+                cor_score = home_team.get('Score', 0) if home_team.get('Name', '').upper() == 'CORNELL' else visiting_team.get('Score', 0)
+                opp_score = visiting_team.get('Score', 0) if home_team.get('Name', '').upper() == 'CORNELL' else home_team.get('Score', 0)
+            
+            if scoring_team == "":
+                team = ""
+
+            return {
+                'corScore': cor_score,
+                'oppScore': opp_score,
+                'team': team,
+                'period': period,
+                'time': time,
+                'description': description,
+                'scorer': None,
+                'assist': None,
+                'scoreBy': None
+            }
+            
+        except Exception as e:
+            logger.error(f"Error converting play: {str(e)}")
+            return None
+
+def convert_seconds_to_time(seconds: int) -> str:
+    """
+    Convert total seconds to "minute:seconds" format (e.g. 90 -> "1:30", 65 -> "1:05").
+    """
+    if seconds is None or seconds < 0:
+        return "0:00"
+    minutes = seconds // 60
+    secs = seconds % 60
+    return f"{minutes}:{secs:02d}"

@@ -8,6 +8,7 @@ import requests
 from bs4 import BeautifulSoup
 from src.utils.constants import SIDEARM_SPORTS
 import logging
+from src.utils.helpers import convert_play_to_our_format
 
 logger = logging.getLogger(__name__)
 
@@ -201,10 +202,9 @@ class GameService:
             matching_game = GameService.find_matching_game(game_data)
             if matching_game:
                 game_id = matching_game.id
+                # notify all subscribers
             else:
                 print("create new game in db")
-            
-            # notify all subscribers
     
     def find_matching_game(game_data: Dict) -> Optional[Game]:
         """
@@ -320,3 +320,75 @@ class GameService:
             ])
         
         return score_breakdown
+    
+    def get_game_plays(game_data: Dict) -> List[Dict]:
+        """
+        Extract plays from game data and convert to our format.
+        
+        Args:
+            game_data: Game data from Sidearm API
+            
+        Returns:
+            List of plays in our format
+        """
+        if not game_data or 'Game' not in game_data:
+            return []
+        
+        game = game_data['Game']
+        plays = game.get('LastPlays', [])
+        
+        converted_plays = []
+        for play in plays:
+            converted_play = convert_play_to_our_format(play, game)
+            if converted_play:
+                converted_plays.append(converted_play)
+        
+        return converted_plays
+
+    def update_game_with_new_data(self, game: Game, game_data: Dict) -> bool:
+        """
+        Update a game with live score data.
+        
+        Args:
+            game: Game object to update
+            game_data: Live data from Sidearm API
+            
+        Returns:
+            True if game was updated, False otherwise
+        """
+        try:
+            # Get new plays
+            new_plays = GameService.get_game_plays(game_data)
+            
+            if not new_plays:
+                return False
+            
+            # Get existing box score
+            existing_box_score = game.box_score or []
+            
+            # Filter out duplicate plays
+            unique_plays = GameService.filter_duplicate_plays(existing_box_score, new_plays)
+            
+            if not unique_plays:
+                return False
+            
+            # Update box score
+            updated_box_score = existing_box_score + unique_plays
+            
+            # Update score breakdown if needed
+            updated_score_breakdown = GameService.update_score_breakdown(game_data, game)
+            
+            # Update the game
+            update_data = {
+                'box_score': updated_box_score,
+                'score_breakdown': updated_score_breakdown
+            }
+            
+            GameService.update_game(game.id, update_data)
+            logger.info(f"Updated game {game.id} with {len(unique_plays)} new plays")
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error updating game {game.id}: {str(e)}")
+            return False
