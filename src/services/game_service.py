@@ -202,7 +202,42 @@ class GameService:
             matching_game = GameService.find_matching_game(game_data)
             if matching_game:
                 game_id = matching_game.id
+                was_updated = GameService.update_game_with_new_data(matching_game, game_data)
                 # notify all subscribers
+                if was_updated:
+                    # Update live status and timestamp
+                    from datetime import datetime, timezone
+                    update_data = {
+                        'is_live': True,
+                        'last_updated': datetime.now(timezone.utc).isoformat()
+                    }
+                    GameService.update_game(game_id, update_data)
+                        
+                    # Refresh the game object
+                    matching_game = GameService.get_game_by_id(game_id)
+                        
+                    # Notify subscribers
+                    try:
+                        from src.websocket_manager import get_websocket_manager
+                        websocket_manager = get_websocket_manager()
+                        subscriber_count = websocket_manager.get_game_subscriber_count(game_id)
+                        logger.info(f"Notifying {subscriber_count} subscribers of game {game_id} update")
+                        
+                        # Prepare update data
+                        update_data = {
+                            'gameId': game_id,
+                            'isLive': matching_game.is_live,
+                            'lastUpdated': matching_game.last_updated,
+                            'boxScore': matching_game.box_score,
+                            'scoreBreakdown': matching_game.score_breakdown,
+                            'result': matching_game.result
+                        }
+                        
+                        # Broadcast to WebSocket subscribers
+                        websocket_manager.broadcast_game_update(game_id, update_data)
+                        
+                    except Exception as e:
+                        logger.error(f"Failed to send WebSocket notification for game {game_id}: {str(e)}")
             else:
                 print("create new game in db")
     
