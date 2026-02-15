@@ -9,3 +9,4 @@ Flask-APScheduler
 python-dotenv
 pytz
 gunicorn
+flask-socketio

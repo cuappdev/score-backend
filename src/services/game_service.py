@@ -202,6 +202,7 @@ class GameService:
             matching_game = GameService.find_matching_game(game_data)
             if matching_game:
                 game_id = matching_game.id
+                print("matching game id: ",game_id)
                 was_updated = GameService.update_game_with_new_data(matching_game, game_data)
                 # notify all subscribers
                 if was_updated:
@@ -226,8 +227,8 @@ class GameService:
                         # Prepare update data
                         update_data = {
                             'gameId': game_id,
-                            'isLive': matching_game.is_live,
-                            'lastUpdated': matching_game.last_updated,
+                            'isLive': True,
+                            'lastUpdated': datetime.now(timezone.utc).isoformat(),
                             'boxScore': matching_game.box_score,
                             'scoreBreakdown': matching_game.score_breakdown,
                             'result': matching_game.result
@@ -273,7 +274,7 @@ class GameService:
         if not opponent_team:
             logger.warning(f"Could not find opponent team: {opponent_name}")
             return None
-        opponent_team = opponent_team[0]
+        
         
         # Get game date
         game_date = game.get('Date', '')
@@ -287,10 +288,10 @@ class GameService:
         games = GameService.get_games_by_sport_gender(sport, gender)
         
         for db_game in games:
-            if (db_game.opponent_id == opponent_team.id and 
-                sidearm_dates_match(db_game.date, game_date)):
-                return db_game
-        
+            for opp_team in opponent_team:
+                if (db_game.opponent_id == opp_team.id and 
+                    sidearm_dates_match(db_game.date, game_date)):
+                    return db_game
         return None
     
     def filter_duplicate_plays(existing_plays: List[Dict], new_plays: List[Dict]) -> List[Dict]:
@@ -347,12 +348,10 @@ class GameService:
             opp_period_scores = home_team.get('PeriodScores', [])
         
         # Convert to our format
-        score_breakdown = []
+        score_breakdown = [[], []]
         for i in range(len(cor_period_scores)):
-            score_breakdown.append([
-                str(opp_period_scores[i]) if i < len(opp_period_scores) else "0",
-                str(cor_period_scores[i])
-            ])
+            score_breakdown[0].append(str(cor_period_scores[i]))
+            score_breakdown[1].append(str(opp_period_scores[i]) if i < len(opp_period_scores) else "0")
         
         return score_breakdown
     
@@ -380,7 +379,7 @@ class GameService:
         
         return converted_plays
 
-    def update_game_with_new_data(self, game: Game, game_data: Dict) -> bool:
+    def update_game_with_new_data(game: Game, game_data: Dict) -> bool:
         """
         Update a game with live score data.
         
@@ -412,6 +411,9 @@ class GameService:
             
             # Update score breakdown if needed
             updated_score_breakdown = GameService.update_score_breakdown(game_data, game)
+
+            print("updated box score: ",updated_box_score)
+            print("updated_score_breakdown: ",updated_score_breakdown)
             
             # Update the game
             update_data = {

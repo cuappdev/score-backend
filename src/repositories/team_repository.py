@@ -93,12 +93,15 @@ class TeamRepository:
         Returns:
             List[Team]: The list of matching teams.
         """
-        if not name:
+        if not name or not str(name).strip():
             return []
+        search = str(name).strip()
+        pattern = re.escape(search)
         team_collection = db["team"]
-        pattern = re.escape(name)
-        options = "" if case_sensitive else "i"
-        cursor = team_collection.find({"name": {"$regex": pattern, "$options": options}})
+        regex_query = {"$regex": pattern}
+        if not case_sensitive:
+            regex_query["$options"] = "i"
+        cursor = team_collection.find({"name": regex_query})
         return [Team.from_dict(t) for t in cursor]
 
     @staticmethod

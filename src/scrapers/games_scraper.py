@@ -4,7 +4,7 @@ from src.services import GameService, TeamService
 from src.utils.convert_to_utc import convert_to_utc
 from src.utils.constants import *
 from src.scrapers.game_details_scrape import scrape_game
-from src.utils.helpers import get_dominant_color, normalize_game_data, is_tournament_placeholder_team, is_cornell_loss
+from src.utils.helpers import get_dominant_color, get_with_retries, normalize_game_data, is_tournament_placeholder_team, is_cornell_loss
 import base64
 import re
 from src.database import db
@@ -362,6 +362,8 @@ def fetch_live_games():
     thread.daemon = True
     thread.start()
 
+    # probably should add thread.join for cleanup
+
 def parse_live_page(url):
     today = date.today()
     days_since_saturday = (today.weekday() - 5) % 7
@@ -383,7 +385,7 @@ def parse_live_page(url):
     }
 
     url = "https://cornellbigred.com/services/responsive-calendar.ashx"
-    r = requests.get(url, params=params, headers=headers, timeout=10)
+    r = get_with_retries(url, params=params, headers=headers, timeout=15)
     data = r.json()
 
     # Keep only days where the date is today (compare date string to current date)

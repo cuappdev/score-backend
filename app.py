@@ -3,6 +3,7 @@ import argparse
 from flask import Flask, request, g
 import time
 from flask_graphql import GraphQLView
+from flask_socketio import SocketIO
 from graphene import Schema
 from src.schema import Query, Mutation
 from src.scrapers.games_scraper import fetch_game_schedule, fetch_live_games
@@ -10,6 +11,8 @@ from src.scrapers.youtube_stats import fetch_videos
 from src.scrapers.daily_sun_scrape import fetch_news
 from src.services.article_service import ArticleService
 from src.utils.team_loader import TeamLoader
+from src.websocket_manager import init_websocket_manager
+from src.websocket_events import register_websocket_events
 import signal
 import sys
 from dotenv import load_dotenv
@@ -19,6 +22,8 @@ load_dotenv()
 
 app = Flask(__name__)
 
+# Initialize SocketIO
+socketio = SocketIO(app, cors_allowed_origins="*", logger=True, engineio_logger=True)
 
 @app.before_request
 def start_timer():
@@ -87,6 +92,10 @@ app.add_url_rule(
         "graphql", schema=schema, graphiql=True, get_context=create_context
     ),
 )
+
+# Initialize WebSocket manager and register events
+init_websocket_manager(socketio)
+register_websocket_events(socketio)
 
 # Setup command line arguments
 def parse_args():
@@ -165,7 +174,11 @@ if not args.no_daily_sun and not args.no_scrape:
 def scrape_live_games():
     logging.info("Scraping live games...")
     fetch_live_games()
+    # maybe put live games scraper into own class with a thread attribute
+    # fetch_live_games starts that thread
+    # create stop method that stops that thread and call it here
+    # do this process every 30 seconds
 scrape_live_games()
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=8000)
+    socketio.run(app, debug=True, host="0.0.0.0", port=8000)

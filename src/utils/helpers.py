@@ -1,4 +1,5 @@
 import logging
+import time
 import requests
 from PIL import Image
 from io import BytesIO
@@ -8,6 +9,44 @@ from datetime import datetime, timezone
 from typing import Dict, Optional
 
 logger = logging.getLogger(__name__)
+
+
+def get_with_retries(
+    url,
+    max_retries=3,
+    timeout=15,
+    backoff_factor=1.5,
+    **kwargs,
+):
+    """
+    GET request with retries on connection errors (ChunkedEncodingError, ConnectionResetError, etc.).
+    """
+    last_error = None
+    for attempt in range(max_retries):
+        try:
+            r = requests.get(url, timeout=timeout, **kwargs)
+            r.raise_for_status()
+            return r
+        except (
+            requests.exceptions.ChunkedEncodingError,
+            requests.exceptions.ConnectionError,
+            requests.exceptions.Timeout,
+            ConnectionResetError,
+        ) as e:
+            last_error = e
+            if attempt < max_retries - 1:
+                sleep_secs = backoff_factor ** attempt
+                logger.warning(
+                    "Request failed (attempt %s/%s), retrying in %.1fs: %s",
+                    attempt + 1,
+                    max_retries,
+                    sleep_secs,
+                    e,
+                )
+                time.sleep(sleep_secs)
+            else:
+                raise last_error
+    raise last_error
 
 def get_dominant_color(image_url, white_threshold=200, black_threshold=50):
     """
@@ -252,7 +291,7 @@ def is_game_active(game_data: Dict) -> bool:
             not game.get('IsComplete', False)
         )
 
-def convert_play_to_our_format(self, play: Dict, game: Dict) -> Optional[Dict]:
+def convert_play_to_our_format(play: Dict, game: Dict) -> Optional[Dict]:
         """
         Convert a Sidearm play to our box score format.
         
