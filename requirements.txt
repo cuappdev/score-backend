@@ -1,4 +1,6 @@
 Flask
+Flask-CORS
+Flask-JWT-Extended==4.7.1
 Flask-GraphQL
 graphene
 pymongo
