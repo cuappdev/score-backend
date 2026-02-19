@@ -155,7 +155,7 @@ def field_hockey_summary(box_score_section):
             event = row.find_all(TAG_TD)[2]
             desc = event.find_all(TAG_SPAN)[-1].text.strip()
             
-            if team == "COR" or team == "CU":
+            if team == "COR" or team == "CU" or team == "CORFH" or team == "CORNELL":
                 cornell_score += 1
             else:
                 opp_score += 1
