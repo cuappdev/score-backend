@@ -137,6 +137,7 @@ def hockey_summary(box_score_section):
                     'assist': assist,
                     'cor_score': cornell_score,
                     'opp_score': opp_score,
+                    'description': f"Scored by {scorer}. Assisted by {assist}."
                 })
     if not summary:
         summary = [{"message": "No scoring events in this game."}]
