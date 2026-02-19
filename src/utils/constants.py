@@ -1,7 +1,7 @@
 import os
 
 # JWT 
-JWT_SECRET_KEY = os.environ["JWT_SECRET_KEY"]
+JWT_SECRET_KEY = "93C8i7BIMExEdYgqez1UjEns0dY1MfmYU0gcyRaIHkl"
 
 # Prefix for opponent image URLs
 IMAGE_PREFIX = "https://dxbhsrqyrr690.cloudfront.net/sidearm.nextgen.sites/cornellbigred.com"

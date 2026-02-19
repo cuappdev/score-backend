@@ -13,99 +13,90 @@ logger = logging.getLogger(__name__)
 class WebSocketManager:
     """
     Manages WebSocket connections and real-time subscriptions for live games.
+    Uses SocketIO session id (request.sid) as the connection key so join_room/leave_room
+    and emit(room=...) target the correct client.
     """
-    
+
     def __init__(self, socketio: SocketIO):
         self.socketio = socketio
-        # Track which clients are subscribed to which games
-        self.game_subscribers: Dict[str, Set[str]] = {}  # game_id -> set of client_ids
-        # Track client connections
-        self.client_connections: Dict[str, Dict[str, Any]] = {}  # client_id -> connection_info
-        
-    def handle_connect(self, client_id: str, connection_info: Dict[str, Any] = None):
+        # game_id -> set of sids (SocketIO session ids)
+        self.game_subscribers: Dict[str, Set[str]] = {}
+        # sid -> connection_info
+        self.client_connections: Dict[str, Dict[str, Any]] = {}
+
+    def handle_connect(self, sid: str, connection_info: Dict[str, Any] = None):
         """
         Handle a new WebSocket connection.
-        
+
         Args:
-            client_id: Unique identifier for the client
-            connection_info: Additional connection metadata
+            sid: SocketIO session id (request.sid) for this connection
+            connection_info: Optional connection metadata
         """
-        self.client_connections[client_id] = connection_info or {}
-        logger.info(f"Client {client_id} connected")
+        self.client_connections[sid] = connection_info or {}
+        logger.info(f"Client connected: {sid}")
         
-    def handle_disconnect(self, client_id: str):
+    def handle_disconnect(self, sid: str):
         """
         Handle a WebSocket disconnection.
-        
+
         Args:
-            client_id: Unique identifier for the client
+            sid: SocketIO session id (request.sid) for the disconnecting connection
         """
-        # Remove client from all game subscriptions
         for game_id, subscribers in self.game_subscribers.items():
-            subscribers.discard(client_id)
-            
-        # Clean up empty subscription sets
+            subscribers.discard(sid)
+
         self.game_subscribers = {
-            game_id: subscribers 
-            for game_id, subscribers in self.game_subscribers.items() 
-            if subscribers
+            gid: subs for gid, subs in self.game_subscribers.items() if subs
         }
-        
-        # Remove client connection
-        if client_id in self.client_connections:
-            del self.client_connections[client_id]
-            
-        logger.info(f"Client {client_id} disconnected")
-        
-    def subscribe_to_game(self, client_id: str, game_id: str) -> bool:
+
+        if sid in self.client_connections:
+            del self.client_connections[sid]
+
+        logger.info(f"Client disconnected: {sid}")
+
+    def subscribe_to_game(self, sid: str, game_id: str) -> bool:
         """
         Subscribe a client to live updates for a specific game.
-        
+        Joins the SocketIO room so broadcast_game_update reaches this client.
+
         Args:
-            client_id: Unique identifier for the client
+            sid: SocketIO session id (request.sid)
             game_id: ID of the game to subscribe to
-            
+
         Returns:
             True if subscription was successful, False otherwise
         """
-        if client_id not in self.client_connections:
-            logger.warning(f"Client {client_id} not found for subscription to game {game_id}")
+        if sid not in self.client_connections:
+            logger.warning(f"Unknown sid {sid} for subscription to game {game_id}")
             return False
-            
-        # Add client to game subscribers
+
         if game_id not in self.game_subscribers:
             self.game_subscribers[game_id] = set()
-            
-        self.game_subscribers[game_id].add(client_id)
-        
-        # Join the game room for targeted messaging
-        join_room(f"game_{game_id}", sid=client_id)
-        
-        logger.info(f"Client {client_id} subscribed to game {game_id}")
+
+        self.game_subscribers[game_id].add(sid)
+        join_room(f"game_{game_id}", sid=sid)
+
+        logger.info(f"Client {sid} subscribed to game {game_id}")
         return True
-        
-    def unsubscribe_from_game(self, client_id: str, game_id: str) -> bool:
+
+    def unsubscribe_from_game(self, sid: str, game_id: str) -> bool:
         """
         Unsubscribe a client from live updates for a specific game.
-        
+
         Args:
-            client_id: Unique identifier for the client
+            sid: SocketIO session id (request.sid)
             game_id: ID of the game to unsubscribe from
-            
+
         Returns:
             True if unsubscription was successful, False otherwise
         """
         if game_id in self.game_subscribers:
-            self.game_subscribers[game_id].discard(client_id)
-            
-            # Clean up empty subscription sets
+            self.game_subscribers[game_id].discard(sid)
             if not self.game_subscribers[game_id]:
                 del self.game_subscribers[game_id]
-                
-        # Leave the game room
-        leave_room(f"game_{game_id}", sid=client_id)
-        
-        logger.info(f"Client {client_id} unsubscribed from game {game_id}")
+
+        leave_room(f"game_{game_id}", sid=sid)
+        logger.info(f"Client {sid} unsubscribed from game {game_id}")
         return True
         
     def broadcast_game_update(self, game_id: str, update_data: Dict[str, Any]):
@@ -162,35 +153,19 @@ class WebSocketManager:
             for game_id, subscribers in self.game_subscribers.items()
         }
         
-    def is_client_subscribed(self, client_id: str, game_id: str) -> bool:
-        """
-        Check if a client is subscribed to a specific game.
-        
-        Args:
-            client_id: Unique identifier for the client
-            game_id: ID of the game
-            
-        Returns:
-            True if client is subscribed, False otherwise
-        """
-        return (game_id in self.game_subscribers and 
-                client_id in self.game_subscribers[game_id])
-        
-    def get_client_subscriptions(self, client_id: str) -> Set[str]:
-        """
-        Get all games that a client is subscribed to.
-        
-        Args:
-            client_id: Unique identifier for the client
-            
-        Returns:
-            Set of game IDs that the client is subscribed to
-        """
-        subscriptions = set()
-        for game_id, subscribers in self.game_subscribers.items():
-            if client_id in subscribers:
-                subscriptions.add(game_id)
-        return subscriptions
+    def is_client_subscribed(self, sid: str, game_id: str) -> bool:
+        """Check if the connection (sid) is subscribed to the game."""
+        return (
+            game_id in self.game_subscribers
+            and sid in self.game_subscribers[game_id]
+        )
+
+    def get_client_subscriptions(self, sid: str) -> Set[str]:
+        """Return set of game IDs the connection (sid) is subscribed to."""
+        return {
+            gid for gid, subscribers in self.game_subscribers.items()
+            if sid in subscribers
+        }
 
 
 # Global WebSocket manager instance

@@ -1,12 +1,14 @@
 """
 WebSocket event handlers for live game subscriptions.
+Uses request.sid (SocketIO session id) as the connection identifier so room joins
+and broadcasts target the correct client.
 """
 
 import logging
+from flask import request
 from flask_socketio import emit, disconnect
 from src.websocket_manager import get_websocket_manager
 from src.services.game_service import GameService
-import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -18,37 +20,26 @@ def register_websocket_events(socketio):
     Args:
         socketio: Flask-SocketIO instance
     """
-    
+
     @socketio.on('connect')
     def handle_connect():
-        """Handle client connection."""
-        client_id = str(uuid.uuid4())
-        logger.info(f"Client connected: {client_id}")
-        
-        # Store client ID in session
-        from flask import session
-        session['client_id'] = client_id
-        
-        # Register with WebSocket manager
+        """Handle client connection. Use request.sid as the connection id."""
+        sid = request.sid
+        logger.info(f"Client connected: {sid}")
+
         websocket_manager = get_websocket_manager()
-        websocket_manager.handle_connect(client_id)
-        
-        emit('connected', {'clientId': client_id, 'status': 'success'})
-        
+        websocket_manager.handle_connect(sid)
+
+        emit('connected', {'clientId': sid, 'status': 'success'})
+
     @socketio.on('disconnect')
     def handle_disconnect():
-        """Handle client disconnection."""
-        from flask import session
-        client_id = session.get('client_id')
-        
-        if client_id:
-            logger.info(f"Client disconnected: {client_id}")
-            
-            # Unregister from WebSocket manager
-            websocket_manager = get_websocket_manager()
-            websocket_manager.handle_disconnect(client_id)
-        else:
-            logger.warning("Client disconnected without client_id")
+        """Handle client disconnection. request.sid is still available here."""
+        sid = request.sid
+        logger.info(f"Client disconnected: {sid}")
+
+        websocket_manager = get_websocket_manager()
+        websocket_manager.handle_disconnect(sid)
             
     @socketio.on('subscribe_game')
     def handle_subscribe_game(data):
@@ -60,34 +51,26 @@ def register_websocket_events(socketio):
             "gameId": "68ddf5db6085081a77a6120a"
         }
         """
-        from flask import session
-        client_id = session.get('client_id')
-        
-        if not client_id:
-            emit('error', {'message': 'Client not authenticated'})
-            return
-            
+        sid = request.sid
         game_id = data.get('gameId')
         if not game_id:
             emit('error', {'message': 'Game ID is required'})
             return
-            
-        # Verify game exists
+
         game = GameService.get_game_by_id(game_id)
         if not game:
             emit('error', {'message': f'Game {game_id} not found'})
             return
-            
-        # Subscribe to game updates
+
         websocket_manager = get_websocket_manager()
-        success = websocket_manager.subscribe_to_game(client_id, game_id)
-        
+        success = websocket_manager.subscribe_to_game(sid, game_id)
+
         if success:
             emit('subscription_success', {
                 'gameId': game_id,
                 'message': f'Successfully subscribed to game {game_id}'
             })
-            logger.info(f"Client {client_id} subscribed to game {game_id}")
+            logger.info(f"Client {sid} subscribed to game {game_id}")
         else:
             emit('error', {'message': 'Failed to subscribe to game'})
             
@@ -101,44 +84,31 @@ def register_websocket_events(socketio):
             "gameId": "68ddf5db6085081a77a6120a"
         }
         """
-        from flask import session
-        client_id = session.get('client_id')
-        
-        if not client_id:
-            emit('error', {'message': 'Client not authenticated'})
-            return
-            
+        sid = request.sid
         game_id = data.get('gameId')
         if not game_id:
             emit('error', {'message': 'Game ID is required'})
             return
-            
-        # Unsubscribe from game updates
+
         websocket_manager = get_websocket_manager()
-        success = websocket_manager.unsubscribe_from_game(client_id, game_id)
-        
+        success = websocket_manager.unsubscribe_from_game(sid, game_id)
+
         if success:
             emit('unsubscription_success', {
                 'gameId': game_id,
                 'message': f'Successfully unsubscribed from game {game_id}'
             })
-            logger.info(f"Client {client_id} unsubscribed from game {game_id}")
+            logger.info(f"Client {sid} unsubscribed from game {game_id}")
         else:
             emit('error', {'message': 'Failed to unsubscribe from game'})
             
     @socketio.on('get_subscriptions')
     def handle_get_subscriptions():
         """Handle request for current subscriptions."""
-        from flask import session
-        client_id = session.get('client_id')
-        
-        if not client_id:
-            emit('error', {'message': 'Client not authenticated'})
-            return
-            
+        sid = request.sid
         websocket_manager = get_websocket_manager()
-        subscriptions = websocket_manager.get_client_subscriptions(client_id)
-        
+        subscriptions = websocket_manager.get_client_subscriptions(sid)
+
         emit('subscriptions', {
             'subscriptions': list(subscriptions),
             'count': len(subscriptions)
@@ -154,19 +124,11 @@ def register_websocket_events(socketio):
             "gameId": "68ddf5db6085081a77a6120a"
         }
         """
-        from flask import session
-        client_id = session.get('client_id')
-        
-        if not client_id:
-            emit('error', {'message': 'Client not authenticated'})
-            return
-            
         game_id = data.get('gameId')
         if not game_id:
             emit('error', {'message': 'Game ID is required'})
             return
-            
-        # Get game information
+
         game = GameService.get_game_by_id(game_id)
         if not game:
             emit('error', {'message': f'Game {game_id} not found'})
