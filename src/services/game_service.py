@@ -35,6 +35,13 @@ class GameService:
         return GameRepository.find_by_id(game_id)
 
     @staticmethod
+    def get_games_by_ids(game_ids):
+        """
+        Retrieve games by a list of IDs. Returns only games that exist; order not guaranteed.
+        """
+        return GameRepository.find_by_ids(game_ids)
+
+    @staticmethod
     def create_game(data):
         """
         Create a new game.

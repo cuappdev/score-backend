@@ -137,6 +137,7 @@ def hockey_summary(box_score_section):
                     'assist': assist,
                     'cor_score': cornell_score,
                     'opp_score': opp_score,
+                    'description': f"Scored by {scorer}. Assisted by {assist}."
                 })
     if not summary:
         summary = [{"message": "No scoring events in this game."}]
@@ -154,7 +155,7 @@ def field_hockey_summary(box_score_section):
             event = row.find_all(TAG_TD)[2]
             desc = event.find_all(TAG_SPAN)[-1].text.strip()
             
-            if team == "COR" or team == "CU":
+            if team == "COR" or team == "CU" or team == "CORFH" or team == "CORNELL":
                 cornell_score += 1
             else:
                 opp_score += 1

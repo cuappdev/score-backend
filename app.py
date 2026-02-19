@@ -1,7 +1,17 @@
 import logging
 import argparse
-from flask import Flask, request, g
+import signal
+import sys
 import time
+from datetime import datetime, timedelta
+
+from dotenv import load_dotenv
+
+load_dotenv()
+
+from flask import Flask, request, g
+from flask_cors import CORS
+from flask_jwt_extended import JWTManager
 from flask_graphql import GraphQLView
 from flask_socketio import SocketIO
 from graphene import Schema
@@ -10,6 +20,7 @@ from src.scrapers.games_scraper import fetch_game_schedule, fetch_live_games
 from src.scrapers.youtube_stats import fetch_videos
 from src.scrapers.daily_sun_scrape import fetch_news
 from src.services.article_service import ArticleService
+from src.utils.constants import JWT_SECRET_KEY
 from src.utils.team_loader import TeamLoader
 from src.websocket_manager import init_websocket_manager
 from src.websocket_events import register_websocket_events
@@ -19,8 +30,26 @@ from dotenv import load_dotenv
 from flask_apscheduler import APScheduler
 
 load_dotenv()
+from src.database import db
 
 app = Flask(__name__)
+
+# CORS: allow frontend (different origin) to call this API
+CORS(app, supports_credentials=True)
+
+# JWT config
+app.config["JWT_SECRET_KEY"] = JWT_SECRET_KEY
+app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=1)
+app.config["JWT_REFRESH_TOKEN_EXPIRES"] = timedelta(days=30)
+
+jwt = JWTManager(app)
+
+
+@jwt.token_in_blocklist_loader
+def check_if_token_revoked(jwt_header, jwt_payload: dict) -> bool:
+    """Reject the request if the token's jti is in the blocklist (e.g. after logout)."""
+    jti = jwt_payload["jti"]
+    return db["token_blocklist"].find_one({"jti": jti}) is not None
 
 # Initialize SocketIO
 socketio = SocketIO(app, cors_allowed_origins="*", logger=True, engineio_logger=True)
@@ -79,7 +108,7 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
-schema = Schema(query=Query, mutation=Mutation)
+schema = Schema(query=Query, mutation=Mutation, auto_camelcase=True)
 
 
 def create_context():
@@ -143,6 +172,22 @@ scheduler.init_app(app)
 scheduler.start()
 # Only run scraping tasks if not disabled
 if not args.no_scrape:
+    from flask_apscheduler import APScheduler
+    scheduler = APScheduler()
+    scheduler.init_app(app)
+    scheduler.start()
+
+    @scheduler.task("interval", id="cleanse_token_blocklist", seconds=86400)  # 24 hours
+    def cleanse_token_blocklist():
+        """Remove expired tokens from blocklist so the collection doesn't grow forever."""
+        from datetime import timezone
+        from src.database import db
+        result = db["token_blocklist"].delete_many(
+            {"expires_at": {"$lt": datetime.now(timezone.utc)}}
+        )
+        if result.deleted_count:
+            logging.info(f"Cleansed {result.deleted_count} expired token(s) from blocklist")
+
     @scheduler.task("interval", id="scrape_schedules", seconds=43200) # 12 hours
     def scrape_schedules():
         logging.info("Scraping game schedules...")
