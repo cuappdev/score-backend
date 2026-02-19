@@ -98,6 +98,9 @@ def setup_database_indexes():
             background=True
         )
 
+        # JWT blocklist: fast lookup by jti
+        db["token_blocklist"].create_index([("jti", 1)], background=True)
+
         print("✅ MongoDB indexes created successfully")
     except Exception as e:
         print(f"❌ Failed to create MongoDB indexes: {e}")
