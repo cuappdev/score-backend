@@ -18,6 +18,7 @@ from src.mutations import (
     LogoutUser,
     AddFavoriteGame,
     RemoveFavoriteGame,
+    CreateNotification,
 )
 from src.queries import GameQuery, TeamQuery, YoutubeVideoQuery, ArticleQuery
 
@@ -30,6 +31,7 @@ class Mutation(ObjectType):
     create_game = CreateGame.Field(description="Creates a new game.")
     create_team = CreateTeam.Field(description="Creates a new team.")
     create_youtube_video = CreateYoutubeVideo.Field(description="Creates a new youtube video.")
+    create_notification = CreateNotification.Field(description="Sends a notification.")
     create_article = CreateArticle.Field(description="Creates a new article.")
     login_user = LoginUser.Field(description="Login by net_id; returns access_token and refresh_token.")
     signup_user = SignupUser.Field(

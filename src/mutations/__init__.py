@@ -8,3 +8,5 @@ from .refresh_access_token import RefreshAccessToken
 from .logout_user import LogoutUser
 from .add_favorite_game import AddFavoriteGame
 from .remove_favorite_game import RemoveFavoriteGame
+from .create_youtube_video import CreateYoutubeVideo
+from .create_notifications import CreateNotification
