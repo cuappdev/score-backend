@@ -19,7 +19,7 @@ class WebSocketManager:
 
     def __init__(self, socketio: SocketIO):
         self.socketio = socketio
-        # game_id -> set of sids (SocketIO session ids)
+        # game_id -> set of sids
         self.game_subscribers: Dict[str, Set[str]] = {}
         # sid -> connection_info
         self.client_connections: Dict[str, Dict[str, Any]] = {}
