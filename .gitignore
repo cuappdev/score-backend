@@ -5,3 +5,4 @@ __pycache__/
 .envrc
 .DS_Store
 ca-certificate.crt
+firebase_serviceAccountKey.json
