@@ -36,4 +36,9 @@ class NotificationService:
         # in send_notfiication method, delete the token if it fails
         # in the games scraping script, send notifications to the user for games that are upcoming and they have favorited by querying the tokens and using $in to check tokens that have the game id/sport
         # might have to create device_id table that stores device id with current fcm token
+        
+        # devices table that store device id, current fcm token, and preferences (game ids/sports that the user has favorited)
+        # anytime user refreshes token, update the device table with the new token and add token to token table with timestamp
+        # anytime token is invalid or its past its timestamp, delete the token
+        # in the games scraping script, send notifications to the user for games that are upcoming and they have favorited by querying the tokens and using $in to check tokens that have the game id/sport
         return messaging.send_each_for_multicast(message)
