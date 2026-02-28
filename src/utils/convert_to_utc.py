@@ -1,7 +1,27 @@
-
 from datetime import datetime, timezone
 import re
 import pytz
+
+
+def to_datetime(value):
+    """
+    Convert value to timezone-aware UTC datetime.
+    Accepts: None, datetime (naive or aware), ISO format string.
+    Returns None if value is None or parsing fails.
+    """
+    if value is None:
+        return None
+    if hasattr(value, "isoformat"):
+        dt = value
+        return dt if getattr(dt, "tzinfo", None) else dt.replace(tzinfo=timezone.utc)
+    if isinstance(value, str):
+        try:
+            dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+        except ValueError:
+            return None
+    return None
+
 
 def parse_time_string(time_str):
     """

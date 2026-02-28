@@ -30,15 +30,6 @@ class NotificationService:
             tokens=tokens,
         )
 
-        # create a token creation graphql mutation that accepts an fcm token and possibly a user id and timestamp
-        # occasionally remove tokens that are older than 30 days using a script that runs every day at midnight
-        # in the database associate the token with game ids/sports that the user has favorited
-        # in send_notfiication method, delete the token if it fails
-        # in the games scraping script, send notifications to the user for games that are upcoming and they have favorited by querying the tokens and using $in to check tokens that have the game id/sport
-        # might have to create device_id table that stores device id with current fcm token
-        
-        # devices table that store device id, current fcm token, and preferences (game ids/sports that the user has favorited)
-        # anytime user refreshes token, update the device table with the new token and add token to token table with timestamp
-        # anytime token is invalid or its past its timestamp, delete the token
-        # in the games scraping script, send notifications to the user for games that are upcoming and they have favorited by querying the tokens and using $in to check tokens that have the game id/sport
+        # clear invalid fcm tokens in devices table (make fcm_token field empty)
+
         return messaging.send_each_for_multicast(message)

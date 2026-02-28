@@ -198,6 +198,8 @@ if not args.no_daily_sun and not args.no_scrape:
     scrape_daily_sun()
     cleanse_daily_sun_db()
 
+# add task to clear fcm tokens that are older than 30 days
+
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=8000)

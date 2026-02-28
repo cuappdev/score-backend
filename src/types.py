@@ -1,4 +1,4 @@
-from graphene import ObjectType, Field, String, List, Int
+from graphene import ObjectType, Field, String, List, Int, DateTime
 from datetime import datetime
 
 class TeamType(ObjectType):
@@ -210,12 +210,17 @@ class DeviceType(ObjectType):
         - `current_fcm_token`: The current FCM token of the device.
         - `games`: The games preferences of the device.
         - `sports`: The sports preferences of the device.
+        - `token_update_date`: When the FCM token was last updated.
     """
     id = String()
     device_id = String(required=True)
     current_fcm_token = String(required=True)
     games = List(String)
     sports = List(String)
+    token_update_date = DateTime()
+
+    def resolve_token_update_date(root, info):
+        return getattr(root, "token_update_date", None)
 
     def __init__(self, **kwargs):
         for key, value in kwargs.items():
