@@ -11,11 +11,5 @@ class CreateDevice(Mutation):
 
     device = Field(lambda: DeviceType)
     def mutate(self, info, device_id, current_fcm_token, games, sports):
-        device_data = {
-            "device_id": device_id,
-            "current_fcm_token": current_fcm_token,
-            "games": games,
-            "sports": sports
-        }
-        new_device = DeviceService.create_device(device_data)
+        new_device = DeviceService.create_device(device_id, current_fcm_token, games, sports)
         return CreateDevice(device=new_device)
