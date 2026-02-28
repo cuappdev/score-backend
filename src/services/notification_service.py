@@ -31,5 +31,6 @@ class NotificationService:
         )
 
         # clear invalid fcm tokens in devices table (make fcm_token field empty)
+        
 
         return messaging.send_each_for_multicast(message)

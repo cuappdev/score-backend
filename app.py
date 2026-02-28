@@ -170,6 +170,20 @@ if not args.no_scrape:
         )
         if result.deleted_count:
             logging.info(f"Cleansed {result.deleted_count} expired token(s) from blocklist")
+    
+    @scheduler.task("interval", id="cleanse_device_tokens", seconds=86400) # 24 hours
+    def cleanse_device_tokens():
+        """Clear the FCM token on devices whose token has not been updated in the last 30 days."""
+        logging.info("Clearing FCM tokens on devices that have not been updated in the last 30 days...")
+        from datetime import timezone
+        from src.database import db
+        cutoff = datetime.now(timezone.utc) - timedelta(days=30)
+        result = db["devices"].update_many(
+            {"token_update_date": {"$lt": cutoff}},
+            {"$unset": {"current_fcm_token": ""}}
+        )
+        if result.modified_count:
+            logging.info(f"Cleared token on {result.modified_count} device(s) (token older than 30 days)")
 
     @scheduler.task("interval", id="scrape_schedules", seconds=43200) # 12 hours
     def scrape_schedules():
@@ -183,6 +197,7 @@ if not args.no_scrape:
 
     scrape_schedules()
     scrape_videos()
+    cleanse_device_tokens()
 
 if not args.no_daily_sun and not args.no_scrape:
     @scheduler.task("interval", id="scrape_daily_sun", seconds=3600)
@@ -197,9 +212,6 @@ if not args.no_daily_sun and not args.no_scrape:
 
     scrape_daily_sun()
     cleanse_daily_sun_db()
-
-# add task to clear fcm tokens that are older than 30 days
-
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=8000)
