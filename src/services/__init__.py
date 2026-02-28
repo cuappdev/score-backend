@@ -3,3 +3,4 @@ from .team_service import TeamService
 from .youtube_video_service import YoutubeVideoService
 from .notification_service import NotificationService
 from .article_service import ArticleService
+from .device_service import DeviceService

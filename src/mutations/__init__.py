@@ -10,3 +10,4 @@ from .add_favorite_game import AddFavoriteGame
 from .remove_favorite_game import RemoveFavoriteGame
 from .create_youtube_video import CreateYoutubeVideo
 from .create_notifications import CreateNotification
+from .create_device import CreateDevice

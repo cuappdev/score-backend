@@ -200,3 +200,23 @@ class ArticleType(ObjectType):
     def __init__(self, **kwargs):
         for key, value in kwargs.items():
             setattr(self, key, value)
+
+class DeviceType(ObjectType):
+    """
+    A GraphQL type representing a device.
+
+    Attributes:
+        - `device_id`: The id of the device.
+        - `current_fcm_token`: The current FCM token of the device.
+        - `games`: The games preferences of the device.
+        - `sports`: The sports preferences of the device.
+    """
+    id = String()
+    device_id = String(required=True)
+    current_fcm_token = String(required=True)
+    games = List(String)
+    sports = List(String)
+
+    def __init__(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
