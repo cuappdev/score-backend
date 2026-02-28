@@ -30,7 +30,18 @@ class NotificationService:
             tokens=tokens,
         )
 
-        # clear invalid fcm tokens in devices table (make fcm_token field empty)
-        
+        response = messaging.send_each_for_multicast(message)
+        failed_tokens = []
+        for idx, send_response in enumerate(response.responses):
+            if not send_response.success:
+                token = tokens[idx]
+                failed_tokens.append(token)
 
-        return messaging.send_each_for_multicast(message)
+        if failed_tokens:
+            from src.database import db
+            db["devices"].update_many(
+                {"current_fcm_token": {"$in": failed_tokens}},
+                {"$unset": {"current_fcm_token": ""}},
+            )
+
+        return response
