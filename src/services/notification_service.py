@@ -37,7 +37,7 @@ class NotificationService:
                 token = tokens[idx]
                 failed_tokens.append(token)
 
-        if failed_tokens: # if the notification failed to send to a device, remove the device from the database
+        if failed_tokens:
             from src.database import db
             db["devices"].update_many(
                 {"current_fcm_token": {"$in": failed_tokens}},
