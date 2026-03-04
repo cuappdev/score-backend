@@ -63,6 +63,11 @@ def setup_database_indexes():
         game_collection.create_index([("date", 1)], background=True)
         game_collection.create_index([("gender", 1)], background=True)
 
+        # Geospatial support
+        # Assumes each game doc has:
+        # geo: { "type": "Point", "coordinates": [lng, lat] }
+        game_collection.create_index([("geo", "2dsphere")], background=True)
+
         # Create compound indexes for common query combinations
         game_collection.create_index([("sport", 1), ("gender", 1)], background=True)
 

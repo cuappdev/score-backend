@@ -246,6 +246,29 @@ class GameRepository:
         
         games = game_collection.find(query)
         return [Game.from_dict(game) for game in games]
+    
+    @staticmethod
+    def find_by_distance(latitude, longitude, radius_meters):
+        """
+        Retrieve all games from the 'game' collection in MongoDB within radius_meters
+        of the point (lat, lng).
+        """
+        game_collection = db["game"]
+
+        query = {
+            "geo": {
+                "$near": {
+                    "$geometry": {
+                        "type": "Point",
+                        "coordinates": [longitude, latitude]
+                    },
+                    "$maxDistance": radius_meters
+                }
+            }
+        }
+
+        games = game_collection.find(query)
+        return [Game.from_dict(game) for game in games]
 
     @staticmethod
     def find_by_ids(game_ids):

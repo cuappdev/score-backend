@@ -119,6 +119,13 @@ class GameService:
         Retrieves all games between these two dates.
         """
         return GameRepository.find_by_date(startDate, endDate)
+    
+    @staticmethod
+    def get_games_by_distance(latitude, longitude, radius_meters):
+        """
+        Retrieves games within radius_meters of (latitude, longitude).
+        """
+        return GameRepository.find_by_distance(latitude, longitude, radius_meters)
 
     @staticmethod
     def get_tournament_games_by_sport_gender(sport, gender, after_date=None):

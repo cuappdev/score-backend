@@ -29,6 +29,7 @@ class Game:
         sport,
         state,
         id=None,
+        geo=None,
         location=None,
         result=None,
         time=None,
@@ -42,6 +43,7 @@ class Game:
         self.city = city
         self.date = date
         self.gender = gender
+        self.geo = geo
         self.location = location
         self.opponent_id = opponent_id
         self.result = result
@@ -63,6 +65,7 @@ class Game:
             "city": self.city,
             "date": self.date,
             "gender": self.gender,
+            "geo": self.geo,
             "location": self.location,
             "opponent_id": self.opponent_id,
             "result": self.result,
@@ -86,6 +89,7 @@ class Game:
             city=data.get("city"),
             date=data.get("date"),
             gender=data.get("gender"),
+            geo=data.get("geo"),
             location=data.get("location"),
             opponent_id=data.get("opponent_id"),
             result=data.get("result"),

@@ -1,4 +1,4 @@
-from graphene import Mutation, String, Field
+from graphene import Mutation, String, Field, Float
 from src.types import GameType
 from src.services import GameService
 
@@ -8,6 +8,8 @@ class CreateGame(Mutation):
         city = String(required=True)
         date = String(required=True)
         gender = String(required=True)
+        latitude = Float(required=False)
+        longitude = Float(required=False)
         location = String(required=False)
         opponent_id = String(required=True)
         result = String(required=False)
@@ -30,6 +32,8 @@ class CreateGame(Mutation):
         opponent_id,
         sport,
         state,
+        latitude=None,
+        longitude=None,
         location=None,
         result=None,
         time=None,
@@ -42,6 +46,7 @@ class CreateGame(Mutation):
             "city": city,
             "date": date,
             "gender": gender,
+            "geo": {"type": "Point", "coordinates": [longitude, latitude]} if latitude and longitude else None,
             "location": location,
             "opponent_id": opponent_id,
             "result": result,
