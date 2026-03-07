@@ -31,9 +31,11 @@ class Mutation(ObjectType):
     create_team = CreateTeam.Field(description="Creates a new team.")
     create_youtube_video = CreateYoutubeVideo.Field(description="Creates a new youtube video.")
     create_article = CreateArticle.Field(description="Creates a new article.")
-    login_user = LoginUser.Field(description="Login by net_id; returns access_token and refresh_token.")
+    login_user = LoginUser.Field(
+        description="Login with Firebase ID token; returns access_token and refresh_token.",
+    )
     signup_user = SignupUser.Field(
-        description="Create a new user by net_id; returns access_token and refresh_token (no separate login needed).",
+        description="Create a new user with Firebase ID token; returns access_token and refresh_token.",
     )
     refresh_access_token = RefreshAccessToken.Field(
         description="Exchange a valid refresh token (in Authorization header) for a new access_token.",

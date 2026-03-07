@@ -23,6 +23,27 @@ from src.utils.constants import JWT_SECRET_KEY
 from src.utils.team_loader import TeamLoader
 from src.database import db
 
+import os
+import firebase_admin
+from firebase_admin import credentials, auth
+
+SERVICE_ACCOUNT_PATH = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+
+
+def initialize_firebase():
+    if not firebase_admin._apps:
+        if not SERVICE_ACCOUNT_PATH:
+            raise ValueError(
+                "GOOGLE_APPLICATION_CREDENTIALS is not set. Set it to your firebase-service-account-key.json path."
+            )
+        cred = credentials.Certificate(SERVICE_ACCOUNT_PATH)
+        firebase_admin.initialize_app(cred)
+        logging.info("Firebase app initialized.")
+    return firebase_admin.get_app()
+
+
+initialize_firebase()
+
 app = Flask(__name__)
 
 # CORS: allow frontend (different origin) to call this API
