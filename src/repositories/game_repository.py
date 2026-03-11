@@ -246,6 +246,29 @@ class GameRepository:
         
         games = game_collection.find(query)
         return [Game.from_dict(game) for game in games]
+    
+    @staticmethod
+    def find_by_location(onCampus):
+        """
+        Retrieve all games from the 'game' collection in MongoDB where
+        "onCampus" boolean indicates location is on campus (true) or 
+        off campus (false).
+        """
+        game_collection = db["game"]
+
+        CAMPUS_LOCATIONS = [
+            "Ithaca, NY",
+            "Lynah Rink"
+        ]
+
+        if onCampus:
+            query = {"location": {"$in": CAMPUS_LOCATIONS}}
+        else:
+            query = {"location": {"$nin": CAMPUS_LOCATIONS}}
+
+        games = game_collection.find(query)
+
+        return [Game.from_dict(game) for game in games]
 
     @staticmethod
     def find_by_ids(game_ids):
