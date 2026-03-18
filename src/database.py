@@ -62,7 +62,7 @@ def setup_database_indexes():
         game_collection.create_index([("sport", 1)], background=True)
         game_collection.create_index([("date", 1)], background=True)
         game_collection.create_index([("gender", 1)], background=True)
-        game_collection.create_index([("location", 1)], background=True)
+        game_collection.create_index([("city", 1)], background=True)
 
         # Create compound indexes for common query combinations
         game_collection.create_index([("sport", 1), ("gender", 1)], background=True)

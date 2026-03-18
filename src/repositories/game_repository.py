@@ -256,15 +256,10 @@ class GameRepository:
         """
         game_collection = db["game"]
 
-        CAMPUS_LOCATIONS = [
-            "Ithaca, NY",
-            "Lynah Rink"
-        ]
-
         if onCampus:
-            query = {"location": {"$in": CAMPUS_LOCATIONS}}
+            query = {"city": "Ithaca"}
         else:
-            query = {"location": {"$nin": CAMPUS_LOCATIONS}}
+            query = {"city": {"$ne": "Ithaca"}}
 
         games = game_collection.find(query)
 
