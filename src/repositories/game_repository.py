@@ -248,6 +248,17 @@ class GameRepository:
         return [Game.from_dict(game) for game in games]
 
     @staticmethod
+    def find_by_ids(game_ids):
+        """
+        Fetch games from the MongoDB collection by a list of IDs.
+        """
+        if not game_ids:
+            return []
+        game_collection = db["game"]
+        cursor = game_collection.find({"_id": {"$in": game_ids}})
+        return [Game.from_dict(g) for g in cursor]
+
+    @staticmethod
     def delete_games_by_ids(game_ids):
         """
         Delete games by their IDs.
