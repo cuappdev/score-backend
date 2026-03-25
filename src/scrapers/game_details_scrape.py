@@ -53,6 +53,34 @@ def extract_teams_and_scores(box_score_section, sport):
 
     return team_names, period_scores
 
+def softball_summary(box_score_section):
+    summary = []
+    scoring_section = box_score_section.find(TAG_SECTION, {ATTR_ARIA_LABEL: LABEL_SCORING_SUMMARY})
+    if scoring_section:
+        scoring_rows = scoring_section.find(TAG_TBODY)
+        if scoring_rows:
+            for row in scoring_rows.find_all(TAG_TR):
+                team = row.find_all(TAG_TD)[0].find(TAG_IMG)[ATTR_ALT]
+                inning = row.find_all(TAG_TD)[3].text.strip()
+                desc_cell = row.find_all(TAG_TD)[4]
+                span = desc_cell.find(TAG_SPAN)
+                if span:
+                    span.extract()
+                desc = desc_cell.get_text(strip=True)
+                cornell_score = int(row.find_all(TAG_TD)[5].get_text(strip=True) or 0)
+                opp_score = int(row.find_all(TAG_TD)[6].get_text(strip=True) or 0)
+                summary.append({
+                        'team': team, 
+                        'inning': inning,
+                        'description': desc,
+                        'cor_score': cornell_score,
+                        'opp_score': opp_score
+                    })
+    if not summary:
+        summary = [{"message": "No scoring events in this game."}]
+    return summary 
+
+
 def soccer_summary(box_score_section):
     summary = []
     scoring_section = box_score_section.find(TAG_SECTION, {ATTR_ARIA_LABEL: LABEL_SCORING_SUMMARY})
@@ -124,14 +152,13 @@ def hockey_summary(box_score_section):
                 scorer = row.find_all(TAG_TD)[4].text.strip()
                 assist = row.find_all(TAG_TD)[5].text.strip()
                 
-                if team == "COR" or team == "CU" or team == "Cornell":
+                if team == "COR" or team == "CU" or team == "Cornell" or team == "CORNELL":
                     cornell_score += 1
                 else:
                     opp_score += 1
 
                 summary.append({
                     'team': team,
-                    'period': period,
                     'time': time,
                     'scorer': scorer,
                     'assist': assist,
@@ -272,6 +299,7 @@ def scrape_game(url, sport):
         'field hockey': (lambda: extract_teams_and_scores(box_score_section, 'field hockey'), field_hockey_summary),
         'lacrosse': (lambda: extract_teams_and_scores(box_score_section, 'lacrosse'), lacrosse_summary),
         'baseball': (lambda: extract_teams_and_scores(box_score_section, 'baseball'), baseball_summary),
+        'softball': (lambda: extract_teams_and_scores(box_score_section, 'softball'), softball_summary),
         'basketball': (lambda: extract_teams_and_scores(box_score_section, 'basketball'), lambda _: []),
     }
 

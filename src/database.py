@@ -70,6 +70,7 @@ def setup_database_indexes():
         game_collection.create_index([("date", -1)], background=True)
 
         try:
+            # Ensure doubleheaders on the same day remain distinct by including `time`.
             game_collection.create_index(
                 [
                     ("sport", 1),
@@ -79,8 +80,10 @@ def setup_database_indexes():
                     ("city", 1),
                     ("state", 1),
                     ("location", 1),
+                    ("time", 1),
                 ],
                 unique=True,
+                name="uniq_game_key_with_time",
                 background=True
             )
         except (DuplicateKeyError, OperationFailure) as e:

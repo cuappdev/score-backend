@@ -125,7 +125,8 @@ def parse_schedule_page(url, sport, gender):
 
         result_tag = game_item.select_one(RESULT_TAG)
         if result_tag:
-            game_data["result"] = result_tag.text.strip().replace("\n", "")
+            #game_data["result"] = result_tag.get_text(" ", strip=True)
+            game_data["result"] = result_tag.text.strip().replace("\n", " ")
         else:
             game_data["result"] = None
             
@@ -241,17 +242,16 @@ def process_game_data(game_data):
             if str(final_box_cor_score) != str(cor_final) or str(final_box_opp_score) != str(opp_final):
                 game_data["score_breakdown"] = game_data["score_breakdown"][::-1]
 
-    # Try to find by tournament key fields to handle placeholder teams
+    # Try to find an existing game record to update.
     curr_game = GameService.get_game_by_tournament_key_fields(
         city,
         game_data["date"],
         game_data["gender"],
         location,
         game_data["sport"],
-        state
+        state,
     )
-    
-    # If no tournament game found, try the regular lookup with opponent_id
+
     if not curr_game:
         curr_game = GameService.get_game_by_key_fields(
             city,
@@ -260,7 +260,7 @@ def process_game_data(game_data):
             location,
             team.id,
             game_data["sport"],
-            state
+            state,
         )
 
     if isinstance(curr_game, list):
@@ -268,6 +268,7 @@ def process_game_data(game_data):
             curr_game = curr_game[0]
         else:
             curr_game = None
+
     if curr_game:
         updates = {
             "time": game_time,

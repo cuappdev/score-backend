@@ -54,6 +54,7 @@ class BoxScoreEntryType(ObjectType):
     
     team = String(required=False)
     period = String(required=False)
+    inning = String(required=False)
     time = String(required=False)
     description = String(required=False)
     scorer = String(required=False)
