@@ -11,6 +11,16 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def _time_for_lookup(time):
+    """True when `time` should be included in a query (aligned with uniq_game_key_with_time)."""
+    if time is None:
+        return False
+    s = str(time).strip()
+    if not s or s in ("TBD", "TBA"):
+        return False
+    return True
+
+
 class GameRepository:
     @staticmethod
     def find_all(limit=100, offset=0):
@@ -103,24 +113,26 @@ class GameRepository:
         return Game.from_dict(game_data) if game_data else None
 
     @staticmethod
-    def find_by_key_fields(city, date, gender, location, opponent_id, sport, state):
+    def find_by_key_fields(city, date, gender, location, opponent_id, sport, state, time=None):
         """
-        Find games without time for duplicate games
+        Find games by key fields. When `time` is a concrete value (not TBD/TBA), the query
+        includes it so doubleheaders resolve to a single row. Otherwise falls back to the
+        legacy filter without time (multiple rows possible).
         """
         game_collection = db["game"]
-        games = list(
-            game_collection.find(
-                {
-                    "city": city,
-                    "date": date,
-                    "gender": gender,
-                    "location": location,
-                    "opponent_id": opponent_id,
-                    "sport": sport,
-                    "state": state,
-                }
-            )
-        )
+        base = {
+            "city": city,
+            "date": date,
+            "gender": gender,
+            "location": location,
+            "opponent_id": opponent_id,
+            "sport": sport,
+            "state": state,
+        }
+        if _time_for_lookup(time):
+            games = list(game_collection.find({**base, "time": time}))
+        else:
+            games = list(game_collection.find(base))
 
         if not games:
             return None
@@ -131,7 +143,7 @@ class GameRepository:
         return [Game.from_dict(game) for game in games]
 
     @staticmethod
-    def find_by_tournament_key_fields(city, date, gender, location, sport, state):
+    def find_by_tournament_key_fields(city, date, gender, location, sport, state, time=None):
         """
         Find tournament games by location and date (excluding opponent_id).
         This is used when we need to find a tournament game that might have a placeholder team.
@@ -145,6 +157,8 @@ class GameRepository:
             "gender": gender,
             "sport": sport,
         }
+        if _time_for_lookup(time):
+            query["time"] = time
         
         # For city, state, and location, use flexible matching
         # This allows finding games even when TBD/TBA values change to real values

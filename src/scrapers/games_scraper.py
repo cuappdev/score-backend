@@ -125,8 +125,8 @@ def parse_schedule_page(url, sport, gender):
 
         result_tag = game_item.select_one(RESULT_TAG)
         if result_tag:
-            #game_data["result"] = result_tag.get_text(" ", strip=True)
-            game_data["result"] = result_tag.text.strip().replace("\n", " ")
+            raw = result_tag.get_text(" ", strip=True)
+            game_data["result"] = re.sub(r"\s+", " ", raw).strip()
         else:
             game_data["result"] = None
             
@@ -250,6 +250,7 @@ def process_game_data(game_data):
         location,
         game_data["sport"],
         state,
+        game_time,
     )
 
     if not curr_game:
@@ -261,6 +262,7 @@ def process_game_data(game_data):
             team.id,
             game_data["sport"],
             state,
+            game_time,
         )
 
     if isinstance(curr_game, list):

@@ -70,7 +70,8 @@ def softball_summary(box_score_section):
                 cornell_score = int(row.find_all(TAG_TD)[5].get_text(strip=True) or 0)
                 opp_score = int(row.find_all(TAG_TD)[6].get_text(strip=True) or 0)
                 summary.append({
-                        'team': team, 
+                        'team': team,
+                        'period': inning,
                         'inning': inning,
                         'description': desc,
                         'cor_score': cornell_score,
@@ -159,6 +160,7 @@ def hockey_summary(box_score_section):
 
                 summary.append({
                     'team': team,
+                    'period': period,
                     'time': time,
                     'scorer': scorer,
                     'assist': assist,

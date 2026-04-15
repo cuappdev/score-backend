@@ -3,7 +3,14 @@ from graphene import Mutation, String
 
 from firebase_admin import auth as firebase_auth
 from flask_jwt_extended import create_access_token, create_refresh_token
+from pymongo.errors import DuplicateKeyError
 from src.database import db
+
+_TOKEN_ERRORS = (
+    firebase_auth.InvalidIdTokenError,
+    firebase_auth.ExpiredIdTokenError,
+    firebase_auth.RevokedIdTokenError,
+)
 
 
 class SignupUser(Mutation):
@@ -18,12 +25,14 @@ class SignupUser(Mutation):
     def mutate(self, info, id_token, name=None, email=None):
         try:
             decoded = firebase_auth.verify_id_token(id_token)
-        except Exception:
-            raise GraphQLError("Invalid or expired token.")
+        except _TOKEN_ERRORS as err:
+            raise GraphQLError("Invalid or expired token.") from err
+        except ValueError as err:
+            raise GraphQLError("Invalid or expired token.") from err
 
-        firebase_uid = decoded["uid"]
-        if db["users"].find_one({"firebase_uid": firebase_uid}):
-            raise GraphQLError("User already exists.")
+        firebase_uid = decoded.get("uid")
+        if firebase_uid is None:
+            raise GraphQLError("Token missing uid") from KeyError("uid")
 
         email = email or decoded.get("email")
         user_doc = {
@@ -33,7 +42,10 @@ class SignupUser(Mutation):
         }
         if name is not None:
             user_doc["name"] = name
-        result = db["users"].insert_one(user_doc)
+        try:
+            result = db["users"].insert_one(user_doc)
+        except DuplicateKeyError as err:
+            raise GraphQLError("User already exists.") from err
         identity = str(result.inserted_id)
         return SignupUser(
             access_token=create_access_token(identity=identity),

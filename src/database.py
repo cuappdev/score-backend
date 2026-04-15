@@ -104,6 +104,13 @@ def setup_database_indexes():
         # JWT blocklist: fast lookup by jti
         db["token_blocklist"].create_index([("jti", 1)], background=True)
 
+        try:
+            db["users"].create_index(
+                [("firebase_uid", 1)], unique=True, sparse=True, background=True
+            )
+        except (DuplicateKeyError, OperationFailure) as e:
+            print(f"Warning: Could not create unique index on users.firebase_uid: {e}")
+
         print("✅ MongoDB indexes created successfully")
     except Exception as e:
         print(f"❌ Failed to create MongoDB indexes: {e}")

@@ -11,4 +11,4 @@ Flask-APScheduler
 python-dotenv
 pytz
 gunicorn
-firebase-admin
+firebase-admin==7.3.0

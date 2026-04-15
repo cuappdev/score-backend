@@ -42,7 +42,8 @@ class BoxScoreEntryType(ObjectType):
 
     Attributes:
         - `team`: The team involved in the scoring event.
-        - `period`: The period or inning of the event.
+        - `period`: The period of the event (e.g. hockey period).
+        - `inning`: The inning of the event (e.g. baseball/softball).
         - `time`: The time of the scoring event.
         - `description`: A description of the play or scoring event.
         - `scorer`: The name of the scorer.

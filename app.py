@@ -25,7 +25,7 @@ from src.database import db
 
 import os
 import firebase_admin
-from firebase_admin import credentials, auth
+from firebase_admin import credentials
 
 SERVICE_ACCOUNT_PATH = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
 
@@ -163,16 +163,6 @@ def signal_handler(sig, frame):
 
 signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
-
-# Only parse arguments when running directly (not when imported by gunicorn)
-if __name__ == "__main__":
-    args = parse_args()
-else:
-    # Default args when imported by gunicorn
-    class DefaultArgs:
-        no_scrape = False
-        no_daily_sun = False
-    args = DefaultArgs()
 
 # Only run scraping tasks if not disabled
 if not args.no_scrape:
