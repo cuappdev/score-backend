@@ -18,6 +18,9 @@ class Game:
         - `box_score`       The scoring summary of the game (optional)
         - `score_breakdown` The scoring breakdown of the game (optional)
         - 'ticket_link'    The ticket link for the game (optional)
+        - 'recap_link'     The recap/details link for the game (optional)
+        - 'recap_article_title' Title from the recap/story page when scraped (optional)
+        - 'recap_published_at'  Published date/time string from the recap page (optional)
     """
 
     def __init__(
@@ -37,6 +40,9 @@ class Game:
         team=None,
         utc_date=None,
         ticket_link=None,
+        recap_link=None,
+        recap_article_title=None,
+        recap_published_at=None,
     ):
         self.id = id if id else str(ObjectId())
         self.city = city
@@ -53,6 +59,9 @@ class Game:
         self.team = team
         self.utc_date = utc_date
         self.ticket_link = ticket_link
+        self.recap_link = recap_link
+        self.recap_article_title = recap_article_title
+        self.recap_published_at = recap_published_at
 
     def to_dict(self):
         """
@@ -74,6 +83,9 @@ class Game:
             "team": self.team,
             "utc_date": self.utc_date,
             "ticket_link": self.ticket_link,
+            "recap_link": self.recap_link,
+            "recap_article_title": self.recap_article_title,
+            "recap_published_at": self.recap_published_at,
         }
 
     @staticmethod
@@ -97,4 +109,7 @@ class Game:
             team=data.get("team"),
             utc_date=data.get("utc_date"),
             ticket_link=data.get("ticket_link"),
+            recap_link=data.get("recap_link"),
+            recap_article_title=data.get("recap_article_title"),
+            recap_published_at=data.get("recap_published_at"),
         )

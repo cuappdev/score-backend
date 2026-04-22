@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 from src.services import GameService, TeamService
 from src.utils.convert_to_utc import convert_to_utc
 from src.utils.constants import *
-from src.scrapers.game_details_scrape import scrape_game
+from src.scrapers.game_details_scrape import scrape_game, scrape_sidearm_story_recap
 from src.utils.helpers import get_dominant_color, normalize_game_data, is_tournament_placeholder_team, is_cornell_loss
 import base64
 import re
@@ -40,6 +40,38 @@ def infer_game_year(date_text, season_years):
             return second_year
     return first_year
 
+
+def to_absolute_url(link):
+    """Convert relative Cornell links like /news/... to absolute URLs."""
+    if not link:
+        return None
+    if link.startswith("http://") or link.startswith("https://"):
+        return link
+    return f"{BASE_URL.rstrip('/')}/{link.lstrip('/')}"
+
+
+def parse_game_links(game_item):
+    """
+    Parse link info for a schedule item.
+    Returns (recap_link, ticket_link).
+    """
+    recap_link = None
+    box_score_tag = game_item.select_one(BOX_SCORE_TAG)
+    if box_score_tag:
+        box_score_link = box_score_tag.get("href")
+        recap_link = to_absolute_url(box_score_link)
+
+    # Many sports expose recap links here when there is no separate box score link.
+    if not recap_link:
+        recap_tag = game_item.select_one(RECAP_TAG)
+        if recap_tag:
+            recap_link = to_absolute_url(recap_tag.get("href"))    
+
+    ticket_link_tag = game_item.select_one(GAME_TICKET_LINK)
+    ticket_link = to_absolute_url(ticket_link_tag["href"]) if ticket_link_tag else None
+
+    return recap_link, ticket_link
+
 def fetch_game_schedule():
     """
     Scrape the game schedule from the given URLs in parallel using threads.
@@ -71,7 +103,7 @@ def parse_schedule_page(url, sport, gender):
         sport (str): The sport of the games.
         gender (str): The gender of the games.
     """
-    response = requests.get(url)
+    response = requests.get(url, headers=HTTP_REQUEST_HEADERS, timeout=30)
     soup = BeautifulSoup(response.content, "html.parser")
 
     page_title = soup.title.text.strip() if soup.title else ""
@@ -130,11 +162,15 @@ def parse_schedule_page(url, sport, gender):
         else:
             game_data["result"] = None
             
-        box_score_tag = game_item.select_one(BOX_SCORE_TAG)
-        if box_score_tag:
-            box_score_link = box_score_tag["href"]
-            game_details = scrape_game(f"{BASE_URL}{box_score_link}", sport.lower())
-            if game_details.get('error') == 'Sport parser not found':
+        recap_link, ticket_link = parse_game_links(game_item)
+
+        # These sports use news/recap pages instead of parsable box-score HTML.
+        if sport in SPORTS_WITH_SIDEARM_STORY_RECAP or not recap_link:
+            game_data["box_score"] = None
+            game_data["score_breakdown"] = None
+        else:
+            game_details = scrape_game(recap_link, sport.lower())
+            if game_details.get("error") == "Sport parser not found":
                 game_data["box_score"] = None
                 game_data["score_breakdown"] = None
             else:
@@ -145,23 +181,17 @@ def parse_schedule_page(url, sport, gender):
                     location_data = game_data["location"].split("\n") if game_data["location"] else [""]
                     geo_location = location_data[0]
                     is_home_game = "Ithaca" in geo_location
-                    
+
                     if is_home_game and game_data["box_score"]:
                         for event in game_data["box_score"]:
                             if "cor_score" in event and "opp_score" in event:
                                 event["cor_score"], event["opp_score"] = event["opp_score"], event["cor_score"]
 
-        else:
-            game_data["box_score"] = None
-            game_data["score_breakdown"] = None
-        
-        ticket_link_tag = game_item.select_one(GAME_TICKET_LINK)
-        ticket_link = (
-        ticket_link_tag["href"] if ticket_link_tag else None
-        )
-        game_data["ticket_link"] = (
-            ticket_link if ticket_link else None
-        )
+        if sport in SPORTS_WITH_SIDEARM_STORY_RECAP and recap_link:
+            game_data.update(scrape_sidearm_story_recap(recap_link))
+
+        game_data["ticket_link"] = ticket_link
+        game_data["recap_link"] = recap_link
         process_game_data(game_data)
 
 
@@ -174,7 +204,8 @@ def process_game_data(game_data):
     """
     
     game_data = normalize_game_data(game_data)
-    location_data = game_data["location"].split("\n")
+    location_raw = game_data.get("location") or ""
+    location_data = location_raw.split("\n") if location_raw else [""]
     geo_location = location_data[0]
     if (",") not in geo_location:
         city = geo_location
@@ -281,8 +312,13 @@ def process_game_data(game_data):
             "city": city,
             "location": location,
             "state": state,
-            "ticket_link": game_data["ticket_link"]
+            "ticket_link": game_data["ticket_link"],
+            "recap_link": game_data.get("recap_link"),
         }
+        if "recap_article_title" in game_data:
+            updates["recap_article_title"] = game_data["recap_article_title"]
+        if "recap_published_at" in game_data:
+            updates["recap_published_at"] = game_data["recap_published_at"]
         
         current_team = TeamService.get_team_by_id(curr_game.opponent_id)
         if current_team and is_tournament_placeholder_team(current_team.name):
@@ -307,7 +343,10 @@ def process_game_data(game_data):
         "box_score": game_data["box_score"],
         "score_breakdown": game_data["score_breakdown"],
         "utc_date": utc_date_str,
-        "ticket_link": game_data["ticket_link"]
+        "ticket_link": game_data["ticket_link"],
+        "recap_link": game_data.get("recap_link"),
+        "recap_article_title": game_data.get("recap_article_title"),
+        "recap_published_at": game_data.get("recap_published_at"),
     }
     
     GameService.create_game(game_data)

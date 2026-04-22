@@ -9,6 +9,30 @@ IMAGE_PREFIX = "https://dxbhsrqyrr690.cloudfront.net/sidearm.nextgen.sites/corne
 # Base URL
 BASE_URL = "https://cornellbigred.com"
 
+# cornellbigred.com often returns 404 or empty HTML for Python's default requests User-Agent.
+HTTP_REQUEST_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+}
+
+# Schedule rows for these sports link to Sidearm story pages (no box score); scrape recap headline/date the same way.
+SPORTS_WITH_SIDEARM_STORY_RECAP = frozenset(
+    {
+        "Swimming & Diving",
+        "Track & Field",
+        "Wrestling",
+        "Golf",
+        "Polo",
+        "Fencing",
+        "Equestrian",
+        "Gymnastics"
+    }
+)
+
 # The tag for each game
 GAME_TAG = ".sidearm-schedule-game"
 
@@ -45,8 +69,15 @@ RESULT_TAG = ".sidearm-schedule-game-result"
 # The tag for the box score
 BOX_SCORE_TAG = ".sidearm-schedule-game-links-boxscore a"
 
+# The tag for recap/details links
+RECAP_TAG = ".sidearm-schedule-game-links-recap a"
+
 # The tag for the game ticket link
 GAME_TICKET_LINK = ".sidearm-schedule-game-links-tickets a"
+
+# Sidearm full story recap article page
+SIDEARM_STORY_HEADLINE = "h1.sidearm-story-template-headline"
+SIDEARM_STORY_PUBLISHED_TIME = ".sidearm-story-template-date time"
 
 # HTML Tags
 TAG_TABLE = 'table'

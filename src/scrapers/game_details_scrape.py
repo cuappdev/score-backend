@@ -22,8 +22,45 @@ def clean_name(name):
     return cleaned
 
 def fetch_page(url):
-    response = requests.get(url)
+    response = requests.get(url, headers=HTTP_REQUEST_HEADERS, timeout=20)
     return BeautifulSoup(response.text, 'html.parser')
+
+
+def scrape_sidearm_story_recap(url):
+    """
+    Extract headline and published time from a Cornell Sidearm story/recap page
+    """
+    if not url:
+        return {}
+    try:
+        response = requests.get(url, headers=HTTP_REQUEST_HEADERS, timeout=20)
+        if response.status_code != 200:
+            return {}
+        soup = BeautifulSoup(response.text, "html.parser")
+    except Exception:
+        return {}
+    headline = soup.select_one(SIDEARM_STORY_HEADLINE)
+    time_el = soup.select_one(SIDEARM_STORY_PUBLISHED_TIME)
+    title = headline.get_text(strip=True) if headline else None
+    if not title:
+        og = soup.find("meta", property="og:title")
+        if og and og.get("content"):
+            title = og["content"].strip()
+    published_at = None
+    if time_el:
+        published_at = time_el.get_text(strip=True)
+        if not published_at and time_el.get("datetime"):
+            published_at = time_el["datetime"].strip()
+    if not published_at:
+        pmeta = soup.find("meta", property="article:published_time")
+        if pmeta and pmeta.get("content"):
+            published_at = pmeta["content"].strip()
+    out = {}
+    if title:
+        out["recap_article_title"] = title
+    if published_at:
+        out["recap_published_at"] = published_at
+    return out
 
 def extract_teams_and_scores(box_score_section, sport):
     score_table = box_score_section.find(TAG_TABLE, class_=CLASS_SIDEARM_TABLE)
@@ -258,6 +295,7 @@ def baseball_summary(box_score_section):
         summary = [{"message": "No scoring events in this game."}]
     return summary
 
+
 # def basketball_summary(box_score_section):
 #     summary = []
 #     scoring_section = box_score_section.find(TAG_SECTION, {ATTR_ARIA_LABEL: LABEL_SCORING_SUMMARY})
@@ -303,6 +341,7 @@ def scrape_game(url, sport):
         'baseball': (lambda: extract_teams_and_scores(box_score_section, 'baseball'), baseball_summary),
         'softball': (lambda: extract_teams_and_scores(box_score_section, 'softball'), softball_summary),
         'basketball': (lambda: extract_teams_and_scores(box_score_section, 'basketball'), lambda _: []),
+
     }
 
     extract_teams_func, summary_func = sport_parsers.get(sport, (None, None))
