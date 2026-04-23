@@ -12,6 +12,23 @@ class GameQuery(ObjectType):
         limit=Int(default_value=100, description="Number of games to return"),
         offset=Int(default_value=0, description="Number of games to skip"),
     )
+    games_by_cursor = List(
+        GameType,
+        sport=String(description="Filter by sport"),
+        gender=String(description="Filter by gender"),
+        city=String(description="Filter by city"),
+        state=String(description="Filter by state"),
+        location=String(description="Filter by location"),
+        opponent_id=String(description="Filter by opponent id"),
+        date=String(description="Filter by display date"),
+        time=String(description="Filter by display time"),
+        cursor_date=String(description="Pagination cursor utc_date"),
+        cursor_id=String(description="Pagination cursor _id tie-breaker"),
+        limit=Int(
+            default_value=50,
+            description="Positive = next page, negative = previous page"
+        ),
+    )
     game = Field(GameType, id=String(required=True))
     game_by_data = Field(
         GameType,
@@ -49,6 +66,38 @@ class GameQuery(ObjectType):
         Resolver for retrieving all games with pagination.
         """
         return GameService.get_all_games(limit=limit, offset=offset)
+    
+    def resolve_games_by_cursor(
+        self,
+        info,
+        sport=None,
+        gender=None,
+        city=None,
+        state=None,
+        location=None,
+        opponent_id=None,
+        date=None,
+        time=None,
+        cursor_date=None,
+        cursor_id=None,
+        limit=50,
+    ):
+        """
+        Resolver for retrieving games with filters + cursor pagination.
+        """
+        return GameService.get_games(
+            limit=limit,
+            cursor_date=cursor_date,
+            cursor_id=cursor_id,
+            city=city,
+            date=date,
+            gender=gender,
+            location=location,
+            opponent_id=opponent_id,
+            sport=sport,
+            state=state,
+            time=time,
+        )
 
     def resolve_game(self, info, id):
         """

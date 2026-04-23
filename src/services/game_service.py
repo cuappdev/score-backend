@@ -19,6 +19,83 @@ class GameService:
             list: A list of game documents
         """
         return GameRepository.find_all(limit=limit, offset=offset)
+    
+    @staticmethod
+    def get_games(
+        limit=50,
+        cursor_date=None,
+        cursor_id=None,
+        city=None,
+        date=None,
+        gender=None,
+        location=None,
+        opponent_id=None,
+        sport=None,
+        state=None,
+        time=None,
+    ):
+        """
+        Retrieves games using dynamic filters + cursor pagination.
+
+        Args:
+            limit (int):
+                Number of records to return.
+                Positive => next games after cursor.
+                Negative => previous games before cursor.
+
+            cursor_date (str | None):
+                Time boundary used for pagination.
+
+            cursor_id (str | None):
+                Optional tie-breaker when multiple games share
+                the same utc_date.
+
+            city (str | None):
+                Filter by city.
+
+            date (str | None):
+                Filter by display date string.
+
+            gender (str | None):
+                Filter by gender.
+
+            location (str | None):
+                Filter by location.
+
+            opponent_id (str | None):
+                Filter by opponent id.
+
+            sport (str | None):
+                Filter by sport.
+
+            state (str | None):
+                Filter by state.
+
+            time (str | None):
+                Filter by display time string.
+
+        Returns:
+            list:
+                A list of Game objects.
+        """
+
+        filters = {
+            "city": city,
+            "date": date,
+            "gender": gender,
+            "location": location,
+            "opponent_id": opponent_id,
+            "sport": sport,
+            "state": state,
+            "time": time,
+        }
+
+        return GameRepository.find_games(
+            filters=filters,
+            cursor_date=cursor_date,
+            cursor_id=cursor_id,
+            limit=limit,
+        )
 
     @staticmethod
     def get_game_by_id(game_id):

@@ -69,6 +69,10 @@ def setup_database_indexes():
 
         # Index for sorting operations
         game_collection.create_index([("date", -1)], background=True)
+        game_collection.create_index(
+            [("utc_date", 1), ("_id", 1)],
+            background=True
+        )
 
         try:
             game_collection.create_index(

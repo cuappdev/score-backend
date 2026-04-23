@@ -44,6 +44,103 @@ class GameRepository:
             raise
 
     @staticmethod
+    def find_games(filters=None, cursor_date=None, cursor_id=None, limit=50):
+        game_collection = db["game"]
+
+        if limit == 0:
+            return []
+
+        filters = filters or {}
+        abs_limit = abs(limit)
+
+        base_query = {}
+
+        allowed_filter_fields = {
+            "city",
+            "date",
+            "gender",
+            "location",
+            "opponent_id",
+            "sport",
+            "state",
+            "time",
+        }
+
+        for key, value in filters.items():
+            if key in allowed_filter_fields and value is not None:
+                base_query[key] = value
+
+        # No cursor: first page
+        if cursor_date is None:
+            docs = list(
+                game_collection.find(base_query)
+                .sort([("utc_date", 1), ("_id", 1)])
+                .limit(abs_limit)
+            )
+            return [Game.from_dict(doc) for doc in docs]
+
+        # Forward
+        if limit > 0:
+            if cursor_id is None:
+                query = {
+                    **base_query,
+                    "utc_date": {"$gte": cursor_date}
+                }
+            else:
+                query = {
+                    "$and": [
+                        base_query,
+                        {
+                            "$or": [
+                                {"utc_date": {"$gt": cursor_date}},
+                                {
+                                    "utc_date": cursor_date,
+                                    "_id": {"$gt": cursor_id}
+                                }
+                            ]
+                        }
+                    ]
+                }
+
+            docs = list(
+                game_collection.find(query)
+                .sort([("utc_date", 1), ("_id", 1)])
+                .limit(abs_limit)
+            )
+
+        # Backward
+        else:
+            if cursor_id is None:
+                query = {
+                    **base_query,
+                    "utc_date": {"$lt": cursor_date}
+                }
+            else:
+                query = {
+                    "$and": [
+                        base_query,
+                        {
+                            "$or": [
+                                {"utc_date": {"$lt": cursor_date}},
+                                {
+                                    "utc_date": cursor_date,
+                                    "_id": {"$lt": cursor_id}
+                                }
+                            ]
+                        }
+                    ]
+                }
+
+            docs = list(
+                game_collection.find(query)
+                .sort([("utc_date", -1), ("_id", -1)])
+                .limit(abs_limit)
+            )
+            docs.reverse()
+
+        return [Game.from_dict(doc) for doc in docs]
+
+    @staticmethod
     def find_by_id(game_id):
         """
         Fetch a game from the MongoDB collection by its ID.
