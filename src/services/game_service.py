@@ -121,6 +121,13 @@ class GameService:
         return GameRepository.find_by_date(startDate, endDate)
 
     @staticmethod
+    def get_games_by_location(onCampus):
+        """
+        Retrieves all games by their location.
+        """
+        return GameRepository.find_by_location(onCampus)
+
+    @staticmethod
     def get_tournament_games_by_sport_gender(sport, gender, after_date=None):
         """
         Find tournament games (with placeholder team names) for a specific sport and gender.

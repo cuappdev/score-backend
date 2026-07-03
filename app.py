@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from flask import Flask, request, g
+from flask import Flask, jsonify, request, g
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from flask_graphql import GraphQLView
@@ -21,7 +21,7 @@ from src.scrapers.daily_sun_scrape import fetch_news
 from src.services.article_service import ArticleService
 from src.utils.constants import JWT_SECRET_KEY
 from src.utils.team_loader import TeamLoader
-from src.database import db
+from src.database import db, client
 
 import os
 import firebase_admin
@@ -123,6 +123,15 @@ schema = Schema(query=Query, mutation=Mutation, auto_camelcase=True)
 
 def create_context():
     return {"team_loader": TeamLoader()}
+
+
+@app.route("/health")
+def health_check():
+    try:
+        client.admin.command("ping")
+        return jsonify({"status": "healthy", "database": "connected"}), 200
+    except Exception:
+        return jsonify({"status": "unhealthy", "database": "disconnected"}), 503
 
 
 app.add_url_rule(
