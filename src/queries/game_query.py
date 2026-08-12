@@ -1,6 +1,6 @@
 from bson import ObjectId
 from flask_jwt_extended import get_jwt_identity, jwt_required
-from graphene import ObjectType, String, Field, List, Int, DateTime
+from graphene import Boolean, ObjectType, String, Field, List, Int, DateTime
 from src.database import db
 from src.services.game_service import GameService
 from src.types import GameType
@@ -30,6 +30,7 @@ class GameQuery(ObjectType):
         GameType, sport=String(required=True), gender=String(required=True)
     )
     games_by_date = List(GameType, startDate=DateTime(required=True), endDate=DateTime(required=True))
+    games_by_location = List(GameType, onCampus=Boolean(required=True))
     my_favorited_games = List(GameType, description="Current user's favorited games (requires auth).")
 
     @jwt_required()
@@ -88,3 +89,10 @@ class GameQuery(ObjectType):
         Resolver for retrieving games by date.
         """
         return GameService.get_games_by_date(startDate, endDate)
+    
+    
+    def resolve_games_by_location(self, info, onCampus):
+        """
+        Resolver for retrieving games by location.
+        """
+        return GameService.get_games_by_location(onCampus)

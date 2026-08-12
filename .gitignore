@@ -35,9 +35,5 @@ ca-certificate.crt
 
 # macOS
 .DS_Store
-
-# IDEs
-.idea/
-.vscode/
-*.swp
-*.swo
+ca-certificate.crt
+firebase-service-account-key.json
