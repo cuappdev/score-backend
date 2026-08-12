@@ -1,8 +1,39 @@
-venv/
-.venv
+# Python
 __pycache__/
+*.py[cod]
+*.pyd
+*.pyo
+.Python
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Testing & coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Logs
+*.log
+pip-log.txt
+
+# Secrets & credentials
 .env
 .envrc
+firebase-service-account-key.json
+ca-certificate.crt
+
+# macOS
 .DS_Store
 ca-certificate.crt
 firebase-service-account-key.json

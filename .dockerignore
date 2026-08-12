@@ -1,0 +1,38 @@
+# Git
+.git/
+.gitignore
+.github/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Secrets & credentials (inject at runtime via env vars or secrets)
+.env
+.envrc
+firebase-service-account-key.json
+ca-certificate.crt
+
+# Docker
+docker-compose.yml
+.dockerignore
+
+# Logs
+*.log
+
+# macOS
+.DS_Store
+
+# IDEs
+.idea/
+.vscode/
+
+# Docs
+README.md
