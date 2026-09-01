@@ -1,23 +1,45 @@
 from graphql import GraphQLError
-from graphene import Mutation, String, Field
+from graphene import Field, Mutation, String
 
+from firebase_admin import auth as firebase_auth
 from flask_jwt_extended import create_access_token, create_refresh_token
-from src.database import db
+from src.services.user_service import UserService
+from src.types import UserType
+
+_TOKEN_ERRORS = (
+    firebase_auth.InvalidIdTokenError,
+    firebase_auth.ExpiredIdTokenError,
+    firebase_auth.RevokedIdTokenError,
+)
 
 
 class LoginUser(Mutation):
     class Arguments:
-        net_id = String(required=True, description="User's net ID (e.g. Cornell netid).")
+        id_token = String(required=True, description="Google Firebase ID token from the client.")
 
     access_token = String()
     refresh_token = String()
+    user = Field(UserType, required=True)
 
-    def mutate(self, info, net_id):
-        user = db["users"].find_one({"net_id": net_id})
+    def mutate(self, info, id_token):
+        try:
+            decoded = firebase_auth.verify_id_token(id_token)
+        except _TOKEN_ERRORS as err:
+            raise GraphQLError("Invalid or expired token.") from err
+        except ValueError as err:
+            raise GraphQLError("Invalid or expired token.") from err
+
+        firebase_uid = decoded.get("uid")
+        provider = decoded.get("firebase", {}).get("sign_in_provider")
+        if not firebase_uid or provider != "google.com":
+            raise GraphQLError("Google authentication required.")
+
+        user = UserService.get_user_by_firebase_uid(firebase_uid)
         if not user:
             raise GraphQLError("User not found.")
-        identity = str(user["_id"])
+        identity = str(user.id)
         return LoginUser(
             access_token=create_access_token(identity=identity),
             refresh_token=create_refresh_token(identity=identity),
+            user=user,
         )

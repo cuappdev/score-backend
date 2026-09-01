@@ -1,33 +1,52 @@
 from graphql import GraphQLError
-from graphene import Mutation, String
+from graphene import Field, Mutation, String
 
+from firebase_admin import auth as firebase_auth
 from flask_jwt_extended import create_access_token, create_refresh_token
-from src.database import db
+from pymongo.errors import DuplicateKeyError
+from src.services.user_service import UserService
+from src.types import UserType
+
+_TOKEN_ERRORS = (
+    firebase_auth.InvalidIdTokenError,
+    firebase_auth.ExpiredIdTokenError,
+    firebase_auth.RevokedIdTokenError,
+)
 
 
 class SignupUser(Mutation):
     class Arguments:
-        net_id = String(required=True, description="User's net ID (e.g. Cornell netid).")
-        name = String(required=False, description="Display name.")
-        email = String(required=False, description="Email address.")
+        id_token = String(required=True, description="Google Firebase ID token from the client.")
 
     access_token = String()
     refresh_token = String()
+    user = Field(UserType, required=True)
 
-    def mutate(self, info, net_id, name=None, email=None):
-        if db["users"].find_one({"net_id": net_id}):
-            raise GraphQLError("Net ID already exists.")
-        user_doc = {
-            "net_id": net_id,
-            "favorite_game_ids": [],
-        }
-        if name is not None:
-            user_doc["name"] = name
-        if email is not None:
-            user_doc["email"] = email
-        result = db["users"].insert_one(user_doc)
-        identity = str(result.inserted_id)
+    def mutate(self, info, id_token):
+        try:
+            decoded = firebase_auth.verify_id_token(id_token)
+        except _TOKEN_ERRORS as err:
+            raise GraphQLError("Invalid or expired token.") from err
+        except ValueError as err:
+            raise GraphQLError("Invalid or expired token.") from err
+
+        firebase_uid = decoded.get("uid")
+        provider = decoded.get("firebase", {}).get("sign_in_provider")
+        if not firebase_uid or provider != "google.com":
+            raise GraphQLError("Google authentication required.")
+
+        try:
+            user = UserService.create_user(
+                firebase_uid,
+                decoded.get("email"),
+                decoded.get("name"),
+            )
+        except DuplicateKeyError as err:
+            raise GraphQLError("User already exists.") from err
+
+        identity = str(user.id)
         return SignupUser(
             access_token=create_access_token(identity=identity),
             refresh_token=create_refresh_token(identity=identity),
+            user=user,
         )

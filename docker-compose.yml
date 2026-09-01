@@ -4,10 +4,13 @@ services:
   app:
     image: cornellappdev/score-dev:${IMAGE_TAG}
     env_file: .env
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: /app/secrets/firebase.json
     ports:
       - "8000:8000"
     volumes:
       - ./ca-certificate.crt:/etc/ssl/ca-certificate.crt:ro # Mount MongoDB cert inside the container, ro for read only
+      - ${FIREBASE_CREDENTIALS_HOST_PATH:-./firebase-service-account-key.json}:/app/secrets/firebase.json:ro
 
   scraper:
     image: cornellappdev/score-dev:${IMAGE_TAG}
