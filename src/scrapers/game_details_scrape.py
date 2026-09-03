@@ -1,6 +1,7 @@
 import re
 import requests
 from bs4 import BeautifulSoup
+from urllib.parse import urljoin
 from src.utils.constants import *
 
 def clean_name(name):
@@ -22,8 +23,54 @@ def clean_name(name):
     return cleaned
 
 def fetch_page(url):
-    response = requests.get(url)
+    response = requests.get(url, headers=HTTP_REQUEST_HEADERS, timeout=20)
     return BeautifulSoup(response.text, 'html.parser')
+
+
+def scrape_sidearm_story_recap(url):
+    """
+    Extract headline, published time, and primary image from a Cornell Sidearm
+    story/recap page.
+    """
+    if not url:
+        return {}
+    try:
+        response = requests.get(url, headers=HTTP_REQUEST_HEADERS, timeout=20)
+        if response.status_code != 200:
+            return {}
+        soup = BeautifulSoup(response.text, "html.parser")
+    except Exception:
+        return {}
+    headline = soup.select_one(SIDEARM_STORY_HEADLINE)
+    time_el = soup.select_one(SIDEARM_STORY_PUBLISHED_TIME)
+    title = headline.get_text(strip=True) if headline else None
+    if not title:
+        og = soup.find("meta", property="og:title")
+        if og and og.get("content"):
+            title = og["content"].strip()
+    published_at = None
+    if time_el:
+        published_at = time_el.get_text(strip=True)
+        if not published_at and time_el.get("datetime"):
+            published_at = time_el["datetime"].strip()
+    if not published_at:
+        pmeta = soup.find("meta", property="article:published_time")
+        if pmeta and pmeta.get("content"):
+            published_at = pmeta["content"].strip()
+    image = soup.select_one(".sidearm-story-template-media img")
+    image_src = image.get("src") if image else None
+    out = {
+        "recap_article_image": (
+            urljoin(f"{BASE_URL.rstrip('/')}/", image_src)
+            if image_src
+            else None
+        )
+    }
+    if title:
+        out["recap_article_title"] = title
+    if published_at:
+        out["recap_published_at"] = published_at
+    return out
 
 def extract_teams_and_scores(box_score_section, sport):
     score_table = box_score_section.find(TAG_TABLE, class_=CLASS_SIDEARM_TABLE)
@@ -52,6 +99,33 @@ def extract_teams_and_scores(box_score_section, sport):
         period_scores.append(scores)
 
     return team_names, period_scores
+
+def softball_summary(box_score_section):
+    summary = []
+    scoring_section = box_score_section.find(TAG_SECTION, {ATTR_ARIA_LABEL: LABEL_SCORING_SUMMARY})
+    if scoring_section:
+        scoring_rows = scoring_section.find(TAG_TBODY)
+        if scoring_rows:
+            for row in scoring_rows.find_all(TAG_TR):
+                team = row.find_all(TAG_TD)[0].find(TAG_IMG)[ATTR_ALT]
+                inning = row.find_all(TAG_TD)[3].text.strip()
+                desc_cell = row.find_all(TAG_TD)[4]
+                span = desc_cell.find(TAG_SPAN)
+                if span:
+                    span.extract()
+                desc = desc_cell.get_text(strip=True)
+                cornell_score = int(row.find_all(TAG_TD)[5].get_text(strip=True) or 0)
+                opp_score = int(row.find_all(TAG_TD)[6].get_text(strip=True) or 0)
+                summary.append({
+                    'team': team,
+                    'period': inning,
+                    'description': desc,
+                    'cor_score': cornell_score,
+                    'opp_score': opp_score
+                })
+    if not summary:
+        summary = [{"message": "No scoring events in this game."}]
+    return summary
 
 def soccer_summary(box_score_section):
     summary = []
@@ -229,6 +303,7 @@ def baseball_summary(box_score_section):
         summary = [{"message": "No scoring events in this game."}]
     return summary
 
+
 # def basketball_summary(box_score_section):
 #     summary = []
 #     scoring_section = box_score_section.find(TAG_SECTION, {ATTR_ARIA_LABEL: LABEL_SCORING_SUMMARY})
@@ -272,7 +347,9 @@ def scrape_game(url, sport):
         'field hockey': (lambda: extract_teams_and_scores(box_score_section, 'field hockey'), field_hockey_summary),
         'lacrosse': (lambda: extract_teams_and_scores(box_score_section, 'lacrosse'), lacrosse_summary),
         'baseball': (lambda: extract_teams_and_scores(box_score_section, 'baseball'), baseball_summary),
+        'softball': (lambda: extract_teams_and_scores(box_score_section, 'softball'), softball_summary),
         'basketball': (lambda: extract_teams_and_scores(box_score_section, 'basketball'), lambda _: []),
+
     }
 
     extract_teams_func, summary_func = sport_parsers.get(sport, (None, None))
@@ -280,10 +357,6 @@ def scrape_game(url, sport):
     if extract_teams_func and summary_func:
         team_names, scores = extract_teams_func()
         scoring_summary = summary_func(box_score_section)
-        
-        for event in scoring_summary:
-            if not event.get("time") and event.get("period"):
-                event["time"] = event["period"]
                 
         return {
             'teams': team_names,

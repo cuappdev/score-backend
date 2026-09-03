@@ -9,6 +9,20 @@ IMAGE_PREFIX = "https://dxbhsrqyrr690.cloudfront.net/sidearm.nextgen.sites/corne
 # Base URL
 BASE_URL = "https://cornellbigred.com"
 
+# cornellbigred.com often returns 404 or empty HTML for Python's default requests User-Agent.
+HTTP_REQUEST_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+}
+
+# Supported game-detail modes.
+DETAIL_MODE_BOX_SCORE = "box_score"
+DETAIL_MODE_RECAP_LINK = "recap_link"
+
 # The tag for each game
 GAME_TAG = ".sidearm-schedule-game"
 
@@ -45,8 +59,15 @@ RESULT_TAG = ".sidearm-schedule-game-result"
 # The tag for the box score
 BOX_SCORE_TAG = ".sidearm-schedule-game-links-boxscore a"
 
+# The tag for recap/details links
+RECAP_TAG = ".sidearm-schedule-game-links-recap a"
+
 # The tag for the game ticket link
 GAME_TICKET_LINK = ".sidearm-schedule-game-links-tickets a"
+
+# Sidearm full story recap article page
+SIDEARM_STORY_HEADLINE = "h1.sidearm-story-template-headline"
+SIDEARM_STORY_PUBLISHED_TIME = ".sidearm-story-template-date time"
 
 # HTML Tags
 TAG_TABLE = 'table'
@@ -86,27 +107,31 @@ ID_SET_5 = 'set-5'
 LABEL_SCORING_SUMMARY = 'Scoring Summary'
 LABEL_CU = 'CU'
 
-# The dictionary mapping sports urls to gender
+# The dictionary mapping sports urls to gender.
+#
+# Cross Country, Rowing, Sailing, Squash, Tennis, Volleyball, and Sprint
+# Football are intentionally commented out until they have a supported game
+# detail source. They should not be scraped as games in the meantime.
 SPORT_URLS = {
     "baseball": {"sport": "Baseball", "gender": "Mens"},
     "mens-basketball": {"sport": "Basketball", "gender": "Mens"},
-    "mens-cross-country": {"sport": "Cross Country", "gender": "Mens"},
+    # "mens-cross-country": {"sport": "Cross Country", "gender": "Mens"},
     "football": {"sport": "Football", "gender": "Mens"},
     "mens-golf": {"sport": "Golf", "gender": "Mens"},
     "mens-ice-hockey": {"sport": "Ice Hockey", "gender": "Mens"},
     "mens-lacrosse": {"sport": "Lacrosse", "gender": "Mens"},
     "mens-polo": {"sport": "Polo", "gender": "Mens"},
-    "rowing": {"sport": "Rowing - Heavyweight", "gender": "Mens"},
-    "mens-rowing": {"sport": "Rowing - Lightweight", "gender": "Mens"},
+    # "rowing": {"sport": "Rowing - Heavyweight", "gender": "Mens"},
+    # "mens-rowing": {"sport": "Rowing - Lightweight", "gender": "Mens"},
     "mens-soccer": {"sport": "Soccer", "gender": "Mens"},
-    "sprint-football": {"sport": "Sprint Football", "gender": "Mens"},
-    "mens-squash": {"sport": "Squash", "gender": "Mens"},
+    # "sprint-football": {"sport": "Sprint Football", "gender": "Mens"},
+    # "mens-squash": {"sport": "Squash", "gender": "Mens"},
     "mens-swimming-and-diving": {"sport": "Swimming & Diving", "gender": "Mens"},
-    "mens-tennis": {"sport": "Tennis", "gender": "Mens"},
+    # "mens-tennis": {"sport": "Tennis", "gender": "Mens"},
     "mens-track-and-field": {"sport": "Track & Field", "gender": "Mens"},
     "wrestling": {"sport": "Wrestling", "gender": "Mens"},
     "womens-basketball": {"sport": "Basketball", "gender": "Womens"},
-    "womens-cross-country": {"sport": "Cross Country", "gender": "Womens"},
+    # "womens-cross-country": {"sport": "Cross Country", "gender": "Womens"},
     "equestrian": {"sport": "Equestrian", "gender": "Womens"},
     "fencing": {"sport": "Fencing", "gender": "Womens"},
     "field-hockey": {"sport": "Field Hockey", "gender": "Womens"},
@@ -114,15 +139,35 @@ SPORT_URLS = {
     "womens-ice-hockey": {"sport": "Ice Hockey", "gender": "Womens"},
     "womens-lacrosse": {"sport": "Lacrosse", "gender": "Womens"},
     "womens-polo": {"sport": "Polo", "gender": "Womens"},
-    "womens-rowing": {"sport": "Rowing ", "gender": "Womens"},
-    "womens-sailing": {"sport": "Sailing", "gender": "Womens"},
+    # "womens-rowing": {"sport": "Rowing", "gender": "Womens"},
+    # "womens-sailing": {"sport": "Sailing", "gender": "Womens"},
     "womens-soccer": {"sport": "Soccer", "gender": "Womens"},
     "softball": {"sport": "Softball", "gender": "Womens"},
-    "womens-squash": {"sport": "Squash", "gender": "Womens"},
+    # "womens-squash": {"sport": "Squash", "gender": "Womens"},
     "womens-swimming-and-diving": {"sport": "Swimming & Diving", "gender": "Womens"},
-    "womens-tennis": {"sport": "Tennis", "gender": "Womens"},
+    # "womens-tennis": {"sport": "Tennis", "gender": "Womens"},
     "womens-track-and-field": {"sport": "Track & Field", "gender": "Womens"},
-    "womens-volleyball": {"sport": "Volleyball", "gender": "Womens"},
+    # "womens-volleyball": {"sport": "Volleyball", "gender": "Womens"},
+}
+
+# The only source of truth for how an active sport's game details are scraped.
+SPORT_DETAIL_MODES = {
+    "Baseball": DETAIL_MODE_BOX_SCORE,
+    "Basketball": DETAIL_MODE_BOX_SCORE,
+    "Football": DETAIL_MODE_BOX_SCORE,
+    "Ice Hockey": DETAIL_MODE_BOX_SCORE,
+    "Field Hockey": DETAIL_MODE_BOX_SCORE,
+    "Lacrosse": DETAIL_MODE_BOX_SCORE,
+    "Soccer": DETAIL_MODE_BOX_SCORE,
+    "Softball": DETAIL_MODE_BOX_SCORE,
+    "Swimming & Diving": DETAIL_MODE_RECAP_LINK,
+    "Track & Field": DETAIL_MODE_RECAP_LINK,
+    "Wrestling": DETAIL_MODE_RECAP_LINK,
+    "Golf": DETAIL_MODE_RECAP_LINK,
+    "Polo": DETAIL_MODE_RECAP_LINK,
+    "Fencing": DETAIL_MODE_RECAP_LINK,
+    "Equestrian": DETAIL_MODE_RECAP_LINK,
+    "Gymnastics": DETAIL_MODE_RECAP_LINK,
 }
 
 IMAGE_BASE_URL = (

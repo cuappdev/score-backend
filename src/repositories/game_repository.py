@@ -11,6 +11,14 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def _time_for_lookup(time):
+    """Return whether a concrete time should be included in a game lookup."""
+    if time is None:
+        return False
+    value = str(time).strip()
+    return bool(value) and value not in ("TBD", "TBA")
+
+
 class GameRepository:
     @staticmethod
     def find_all(limit=100, offset=0):
@@ -103,24 +111,23 @@ class GameRepository:
         return Game.from_dict(game_data) if game_data else None
 
     @staticmethod
-    def find_by_key_fields(city, date, gender, location, opponent_id, sport, state):
+    def find_by_key_fields(city, date, gender, location, opponent_id, sport, state, time=None):
         """
-        Find games without time for duplicate games
+        Find a game by its key fields, including a concrete time when available.
         """
         game_collection = db["game"]
-        games = list(
-            game_collection.find(
-                {
-                    "city": city,
-                    "date": date,
-                    "gender": gender,
-                    "location": location,
-                    "opponent_id": opponent_id,
-                    "sport": sport,
-                    "state": state,
-                }
-            )
-        )
+        base = {
+            "city": city,
+            "date": date,
+            "gender": gender,
+            "location": location,
+            "opponent_id": opponent_id,
+            "sport": sport,
+            "state": state,
+        }
+        if _time_for_lookup(time):
+            base["time"] = time
+        games = list(game_collection.find(base))
 
         if not games:
             return None
@@ -131,7 +138,7 @@ class GameRepository:
         return [Game.from_dict(game) for game in games]
 
     @staticmethod
-    def find_by_tournament_key_fields(city, date, gender, location, sport, state):
+    def find_by_tournament_key_fields(city, date, gender, location, sport, state, time=None):
         """
         Find tournament games by location and date (excluding opponent_id).
         This is used when we need to find a tournament game that might have a placeholder team.
@@ -145,6 +152,8 @@ class GameRepository:
             "gender": gender,
             "sport": sport,
         }
+        if _time_for_lookup(time):
+            query["time"] = time
         
         # For city, state, and location, use flexible matching
         # This allows finding games even when TBD/TBA values change to real values
