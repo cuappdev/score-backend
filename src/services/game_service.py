@@ -74,22 +74,22 @@ class GameService:
         )
 
     @staticmethod
-    def get_game_by_key_fields(city, date, gender, location, opponent_id, sport, state):
+    def get_game_by_key_fields(city, date, gender, location, opponent_id, sport, state, time=None):
         """
-        Retrieve a game by its essential fields, ignoring time
+        Retrieve a game by its key fields, including time when available.
         """
         return GameRepository.find_by_key_fields(
-            city, date, gender, location, opponent_id, sport, state
+            city, date, gender, location, opponent_id, sport, state, time
         )
 
     @staticmethod
-    def get_game_by_tournament_key_fields(city, date, gender, location, sport, state):
+    def get_game_by_tournament_key_fields(city, date, gender, location, sport, state, time=None):
         """
         Retrieve a tournament game by location and date (excluding opponent_id).
         This is used when we need to find a tournament game that might have a placeholder team.
         """
         return GameRepository.find_by_tournament_key_fields(
-            city, date, gender, location, sport, state
+            city, date, gender, location, sport, state, time
         )
 
     @staticmethod
