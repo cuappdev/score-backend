@@ -119,7 +119,6 @@ def softball_summary(box_score_section):
                 summary.append({
                     'team': team,
                     'period': inning,
-                    'inning': inning,
                     'description': desc,
                     'cor_score': cornell_score,
                     'opp_score': opp_score
@@ -358,10 +357,6 @@ def scrape_game(url, sport):
     if extract_teams_func and summary_func:
         team_names, scores = extract_teams_func()
         scoring_summary = summary_func(box_score_section)
-        
-        for event in scoring_summary:
-            if not event.get("time") and event.get("period"):
-                event["time"] = event["period"]
                 
         return {
             'teams': team_names,
