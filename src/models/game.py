@@ -21,6 +21,7 @@ class Game:
         - 'recap_link'     The recap/details link for the game (optional)
         - 'recap_article_title' Title from the recap/story page when scraped (optional)
         - 'recap_published_at'  Published date/time string from the recap page (optional)
+        - 'recap_article_image' Primary image URL from the recap page (optional)
     """
 
     def __init__(
@@ -43,6 +44,7 @@ class Game:
         recap_link=None,
         recap_article_title=None,
         recap_published_at=None,
+        recap_article_image=None,
     ):
         self.id = id if id else str(ObjectId())
         self.city = city
@@ -62,6 +64,7 @@ class Game:
         self.recap_link = recap_link
         self.recap_article_title = recap_article_title
         self.recap_published_at = recap_published_at
+        self.recap_article_image = recap_article_image
 
     def to_dict(self):
         """
@@ -86,6 +89,7 @@ class Game:
             "recap_link": self.recap_link,
             "recap_article_title": self.recap_article_title,
             "recap_published_at": self.recap_published_at,
+            "recap_article_image": self.recap_article_image,
         }
 
     @staticmethod
@@ -112,4 +116,5 @@ class Game:
             recap_link=data.get("recap_link"),
             recap_article_title=data.get("recap_article_title"),
             recap_published_at=data.get("recap_published_at"),
+            recap_article_image=data.get("recap_article_image"),
         )

@@ -91,6 +91,7 @@ class GameType(ObjectType):
         - `recap_link`: The recap/details link of the game. (optional)
         - `recap_article_title`: Headline from the recap story page when scraped (optional)
         - `recap_published_at`: Published date/time from the recap story page (optional)
+        - `recap_article_image`: Primary image URL from the recap story page (optional)
     """
 
     id = String(required=False)
@@ -111,8 +112,27 @@ class GameType(ObjectType):
     recap_link = String(required=False)
     recap_article_title = String(required=False)
     recap_published_at = String(required=False)
+    recap_article_image = String(required=False)
     def __init__(
-        self, id, city, date, gender, location, opponent_id, result, sport, state, time, box_score=None, score_breakdown=None, utc_date=None, ticket_link=None, recap_link=None, recap_article_title=None, recap_published_at=None
+        self,
+        id,
+        city,
+        date,
+        gender,
+        location,
+        opponent_id,
+        result,
+        sport,
+        state,
+        time,
+        box_score=None,
+        score_breakdown=None,
+        utc_date=None,
+        ticket_link=None,
+        recap_link=None,
+        recap_article_title=None,
+        recap_published_at=None,
+        recap_article_image=None,
     ):
         self.id = id    
         self.city = city
@@ -131,6 +151,7 @@ class GameType(ObjectType):
         self.recap_link = recap_link
         self.recap_article_title = recap_article_title
         self.recap_published_at = recap_published_at
+        self.recap_article_image = recap_article_image
 
     @staticmethod
     def team_to_team_type(team_obj):

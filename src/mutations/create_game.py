@@ -21,6 +21,7 @@ class CreateGame(Mutation):
         recap_link = String(required=False)
         recap_article_title = String(required=False)
         recap_published_at = String(required=False)
+        recap_article_image = String(required=False)
 
     game = Field(lambda: GameType)
 
@@ -43,6 +44,7 @@ class CreateGame(Mutation):
         recap_link=None,
         recap_article_title=None,
         recap_published_at=None,
+        recap_article_image=None,
     ):
         game_data = {
             "city": city,
@@ -61,6 +63,7 @@ class CreateGame(Mutation):
             "recap_link": recap_link,
             "recap_article_title": recap_article_title,
             "recap_published_at": recap_published_at,
+            "recap_article_image": recap_article_image,
         }
         new_game = GameService.create_game(game_data)
         return CreateGame(game=new_game)

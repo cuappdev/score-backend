@@ -1,13 +1,12 @@
 import requests
 from bs4 import BeautifulSoup
-from src.services import GameService, TeamService
 from src.utils.convert_to_utc import convert_to_utc
 from src.utils.constants import *
 from src.scrapers.game_details_scrape import scrape_game, scrape_sidearm_story_recap
 from src.utils.helpers import get_dominant_color, normalize_game_data, is_tournament_placeholder_team, is_cornell_loss
 import base64
+import logging
 import re
-from src.database import db
 import threading
 
 
@@ -53,24 +52,26 @@ def to_absolute_url(link):
 def parse_game_links(game_item):
     """
     Parse link info for a schedule item.
-    Returns (recap_link, ticket_link).
+    Keep Box Score and Recap links separate because they are different detail
+    sources. A schedule row can expose either link or both links.
     """
-    recap_link = None
     box_score_tag = game_item.select_one(BOX_SCORE_TAG)
-    if box_score_tag:
-        box_score_link = box_score_tag.get("href")
-        recap_link = to_absolute_url(box_score_link)
-
-    # Many sports expose recap links here when there is no separate box score link.
-    if not recap_link:
-        recap_tag = game_item.select_one(RECAP_TAG)
-        if recap_tag:
-            recap_link = to_absolute_url(recap_tag.get("href"))    
+    recap_tag = game_item.select_one(RECAP_TAG)
 
     ticket_link_tag = game_item.select_one(GAME_TICKET_LINK)
-    ticket_link = to_absolute_url(ticket_link_tag["href"]) if ticket_link_tag else None
-
-    return recap_link, ticket_link
+    return {
+        "box_score_link": (
+            to_absolute_url(box_score_tag.get("href")) if box_score_tag else None
+        ),
+        "recap_link": (
+            to_absolute_url(recap_tag.get("href")) if recap_tag else None
+        ),
+        "ticket_link": (
+            to_absolute_url(ticket_link_tag.get("href"))
+            if ticket_link_tag
+            else None
+        ),
+    }
 
 def fetch_game_schedule():
     """
@@ -79,14 +80,14 @@ def fetch_game_schedule():
     """
     threads = []
     
-    for sport, data in SPORT_URLS.items():
-        url = SCHEDULE_PREFIX + sport + SCHEDULE_POSTFIX
+    for sport_slug, data in SPORT_URLS.items():
+        url = SCHEDULE_PREFIX + sport_slug + SCHEDULE_POSTFIX
 
         # create thread for each sport
         thread = threading.Thread(
             target=parse_schedule_page,
             args=(url, data["sport"], data["gender"]),
-            name=f"Scraper-{sport}"
+            name=f"Scraper-{sport_slug}"
         )
         thread.daemon = True
         threads.append(thread)
@@ -103,6 +104,10 @@ def parse_schedule_page(url, sport, gender):
         sport (str): The sport of the games.
         gender (str): The gender of the games.
     """
+    if sport not in SPORT_DETAIL_MODES:
+        logging.warning("Skipping unsupported sport schedule: %s", sport)
+        return
+
     response = requests.get(url, headers=HTTP_REQUEST_HEADERS, timeout=30)
     soup = BeautifulSoup(response.content, "html.parser")
 
@@ -161,36 +166,43 @@ def parse_schedule_page(url, sport, gender):
         else:
             game_data["result"] = None
             
-        recap_link, ticket_link = parse_game_links(game_item)
+        links = parse_game_links(game_item)
+        box_score_link = links["box_score_link"]
+        recap_link = links["recap_link"]
+        detail_mode = SPORT_DETAIL_MODES.get(sport)
 
-        # These sports use news/recap pages instead of parsable box-score HTML.
-        if sport in SPORTS_WITH_SIDEARM_STORY_RECAP or not recap_link:
-            game_data["box_score"] = None
-            game_data["score_breakdown"] = None
-        else:
-            game_details = scrape_game(recap_link, sport.lower())
-            if game_details.get("error") == "Sport parser not found":
-                game_data["box_score"] = None
-                game_data["score_breakdown"] = None
-            else:
+        if not detail_mode:
+            logging.warning("Skipping unsupported sport: %s", sport)
+            continue
+
+        game_data.update({
+            "box_score": None,
+            "score_breakdown": None,
+            "recap_link": recap_link if detail_mode == DETAIL_MODE_RECAP_LINK else None,
+            "recap_article_title": None,
+            "recap_published_at": None,
+            "recap_article_image": None,
+        })
+
+        if detail_mode == DETAIL_MODE_BOX_SCORE and box_score_link:
+            game_details = scrape_game(box_score_link, sport.lower())
+            if not game_details.get("error"):
                 game_data["box_score"] = game_details.get("scoring_summary")
                 game_data["score_breakdown"] = game_details.get("scores")
 
                 if sport in ["Baseball", "Football", "Lacrosse"]:
-                    location_data = game_data["location"].split("\n") if game_data["location"] else [""]
-                    geo_location = location_data[0]
-                    is_home_game = "Ithaca" in geo_location
-
-                    if is_home_game and game_data["box_score"]:
+                    geo_location = (game_data["location"] or "").split("\n")[0]
+                    if "Ithaca" in geo_location and game_data["box_score"]:
                         for event in game_data["box_score"]:
                             if "cor_score" in event and "opp_score" in event:
-                                event["cor_score"], event["opp_score"] = event["opp_score"], event["cor_score"]
-
-        if sport in SPORTS_WITH_SIDEARM_STORY_RECAP and recap_link:
+                                event["cor_score"], event["opp_score"] = (
+                                    event["opp_score"],
+                                    event["cor_score"],
+                                )
+        elif detail_mode == DETAIL_MODE_RECAP_LINK and recap_link:
             game_data.update(scrape_sidearm_story_recap(recap_link))
 
-        game_data["ticket_link"] = ticket_link
-        game_data["recap_link"] = recap_link
+        game_data["ticket_link"] = links["ticket_link"]
         process_game_data(game_data)
 
 
@@ -202,6 +214,8 @@ def process_game_data(game_data):
         game_data (dict): A dictionary containing the game data.
     """
     
+    from src.services import GameService, TeamService
+
     game_data = normalize_game_data(game_data)
     location_raw = game_data.get("location") or ""
     location_data = location_raw.split("\n") if location_raw else [""]
@@ -311,11 +325,10 @@ def process_game_data(game_data):
             "state": state,
             "ticket_link": game_data["ticket_link"],
             "recap_link": game_data.get("recap_link"),
+            "recap_article_title": game_data.get("recap_article_title"),
+            "recap_published_at": game_data.get("recap_published_at"),
+            "recap_article_image": game_data.get("recap_article_image"),
         }
-        if "recap_article_title" in game_data:
-            updates["recap_article_title"] = game_data["recap_article_title"]
-        if "recap_published_at" in game_data:
-            updates["recap_published_at"] = game_data["recap_published_at"]
         
         current_team = TeamService.get_team_by_id(curr_game.opponent_id)
         if current_team and is_tournament_placeholder_team(current_team.name):
@@ -344,6 +357,7 @@ def process_game_data(game_data):
         "recap_link": game_data.get("recap_link"),
         "recap_article_title": game_data.get("recap_article_title"),
         "recap_published_at": game_data.get("recap_published_at"),
+        "recap_article_image": game_data.get("recap_article_image"),
     }
     
     GameService.create_game(game_data)

@@ -1,6 +1,7 @@
 import re
 import requests
 from bs4 import BeautifulSoup
+from urllib.parse import urljoin
 from src.utils.constants import *
 
 def clean_name(name):
@@ -28,7 +29,8 @@ def fetch_page(url):
 
 def scrape_sidearm_story_recap(url):
     """
-    Extract headline and published time from a Cornell Sidearm story/recap page
+    Extract headline, published time, and primary image from a Cornell Sidearm
+    story/recap page.
     """
     if not url:
         return {}
@@ -55,7 +57,15 @@ def scrape_sidearm_story_recap(url):
         pmeta = soup.find("meta", property="article:published_time")
         if pmeta and pmeta.get("content"):
             published_at = pmeta["content"].strip()
-    out = {}
+    image = soup.select_one(".sidearm-story-template-media img")
+    image_src = image.get("src") if image else None
+    out = {
+        "recap_article_image": (
+            urljoin(f"{BASE_URL.rstrip('/')}/", image_src)
+            if image_src
+            else None
+        )
+    }
     if title:
         out["recap_article_title"] = title
     if published_at:
