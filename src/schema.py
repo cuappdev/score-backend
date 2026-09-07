@@ -1,12 +1,4 @@
-from flask_jwt_extended import (
-    create_access_token,
-    create_refresh_token,
-    get_jwt,
-    get_jwt_identity,
-    jwt_required,
-)
 from graphene import ObjectType, Schema, Mutation
-from src.database import db
 from src.mutations import (
     CreateGame,
     CreateTeam,
@@ -19,10 +11,10 @@ from src.mutations import (
     AddFavoriteGame,
     RemoveFavoriteGame,
 )
-from src.queries import GameQuery, TeamQuery, YoutubeVideoQuery, ArticleQuery
+from src.queries import GameQuery, TeamQuery, YoutubeVideoQuery, ArticleQuery, UserQuery
 
 
-class Query(TeamQuery, GameQuery, YoutubeVideoQuery, ArticleQuery, ObjectType):
+class Query(UserQuery, TeamQuery, GameQuery, YoutubeVideoQuery, ArticleQuery, ObjectType):
     pass
 
 
@@ -31,9 +23,11 @@ class Mutation(ObjectType):
     create_team = CreateTeam.Field(description="Creates a new team.")
     create_youtube_video = CreateYoutubeVideo.Field(description="Creates a new youtube video.")
     create_article = CreateArticle.Field(description="Creates a new article.")
-    login_user = LoginUser.Field(description="Login by net_id; returns access_token and refresh_token.")
+    login_user = LoginUser.Field(
+        description="Login with a Google Firebase ID token; returns access_token and refresh_token.",
+    )
     signup_user = SignupUser.Field(
-        description="Create a new user by net_id; returns access_token and refresh_token (no separate login needed).",
+        description="Create a new user with a Google Firebase ID token; returns access_token and refresh_token.",
     )
     refresh_access_token = RefreshAccessToken.Field(
         description="Exchange a valid refresh token (in Authorization header) for a new access_token.",
@@ -47,6 +41,7 @@ class Mutation(ObjectType):
     remove_favorite_game = RemoveFavoriteGame.Field(
         description="Remove a game from the current user's favorites (requires auth).",
     )
+
 
 
 # auto_camelcase=True (default): GraphQL API uses camelCase (loginUser, accessToken, refreshToken, etc.)

@@ -1,5 +1,18 @@
-from graphene import ObjectType, Field, String, List, Int
+from graphene import ID, ObjectType, Field, String, List, Int
 from datetime import datetime
+
+
+class UserType(ObjectType):
+    """Public application-user fields returned after authentication."""
+
+    id = ID(required=True)
+    email = String()
+    name = String()
+    favorite_game_ids = List(String, required=True)
+
+    @staticmethod
+    def resolve_id(user, info):
+        return str(user.id)
 
 class TeamType(ObjectType):
     """
