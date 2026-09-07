@@ -21,7 +21,7 @@ class AddFavoriteGame(Mutation):
         if not GameService.get_game_by_id(game_id):
             raise GraphQLError("Game not found.")
         if not UserService.add_favorite_game(user_id, game_id):
-            raise GraphQLError("User not found.")
+            raise GraphQLError("Could not add game to favorites.")
         return AddFavoriteGame(success=True)
 
 
