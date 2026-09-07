@@ -105,10 +105,16 @@ def setup_database_indexes():
         # One application user may be linked to only one Firebase account.
         try:
             db["users"].create_index(
-                [("firebase_uid", 1)], unique=True, sparse=True, background=True
+                [("firebase_uid", 1)],
+                unique=True,
+                sparse=True,
+                background=True,
             )
-        except (DuplicateKeyError, OperationFailure) as e:
-            print(f"Warning: Could not create unique index on users.firebase_uid: {e}")
+        except (DuplicateKeyError, OperationFailure) as err:
+            raise RuntimeError(
+                "Cannot start: the unique users.firebase_uid index could not be "
+                "created. Reconcile duplicate Firebase UIDs first."
+            ) from err
 
         print("✅ MongoDB indexes created successfully")
     except Exception as e:

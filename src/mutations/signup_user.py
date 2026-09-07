@@ -11,6 +11,7 @@ _TOKEN_ERRORS = (
     firebase_auth.InvalidIdTokenError,
     firebase_auth.ExpiredIdTokenError,
     firebase_auth.RevokedIdTokenError,
+    firebase_auth.UserDisabledError,
 )
 
 
@@ -24,7 +25,7 @@ class SignupUser(Mutation):
 
     def mutate(self, info, id_token):
         try:
-            decoded = firebase_auth.verify_id_token(id_token)
+            decoded = firebase_auth.verify_id_token(id_token, check_revoked=True)
         except _TOKEN_ERRORS as err:
             raise GraphQLError("Invalid or expired token.") from err
         except ValueError as err:
