@@ -1,9 +1,9 @@
-from bson import ObjectId
-from flask_jwt_extended import get_jwt_identity, jwt_required
+from flask_jwt_extended import get_jwt_identity
 from graphene import Boolean, ObjectType, String, Field, List, Int, DateTime
-from src.database import db
 from src.services.game_service import GameService
+from src.services.user_service import UserService
 from src.types import GameType
+from src.utils.graphql_errors import graphql_jwt_required
 
 
 class GameQuery(ObjectType):
@@ -33,13 +33,13 @@ class GameQuery(ObjectType):
     games_by_location = List(GameType, onCampus=Boolean(required=True))
     my_favorited_games = List(GameType, description="Current user's favorited games (requires auth).")
 
-    @jwt_required()
+    @graphql_jwt_required()
     def resolve_my_favorited_games(self, info):
         user_id = get_jwt_identity()
-        user = db["users"].find_one({"_id": ObjectId(user_id)})
+        user = UserService.require_user(user_id)
         if not user:
             return []
-        favorite_ids = user.get("favorite_game_ids") or []
+        favorite_ids = user.favorite_game_ids
         if not favorite_ids:
             return []
         return GameService.get_games_by_ids(favorite_ids)
