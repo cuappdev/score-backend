@@ -36,5 +36,7 @@ class RemoveFavoriteGame(Mutation):
         user_id = get_jwt_identity()
         if not UserService.require_user(user_id):
             raise GraphQLError("User not found.")
+        if not GameService.get_game_by_id(game_id):
+            raise GraphQLError("Game not found.")
         UserService.remove_favorite_game(user_id, game_id)
         return RemoveFavoriteGame(success=True)
