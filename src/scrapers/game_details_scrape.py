@@ -27,6 +27,22 @@ def fetch_page(url):
     return BeautifulSoup(response.text, 'html.parser')
 
 
+def _image_source(element):
+    """Return the first usable image URL from an image/source element."""
+    if not element:
+        return None
+
+    value = element.get("src")
+    if value:
+        return value
+
+    srcset = element.get("srcset")
+    if srcset:
+        return srcset.split(",", 1)[0].strip().split(" ", 1)[0]
+
+    return None
+
+
 def scrape_sidearm_story_recap(url):
     """
     Extract headline, published time, and primary image from a Cornell Sidearm
@@ -58,7 +74,10 @@ def scrape_sidearm_story_recap(url):
         if pmeta and pmeta.get("content"):
             published_at = pmeta["content"].strip()
     image = soup.select_one(".sidearm-story-template-media img")
-    image_src = image.get("src") if image else None
+    image_src = _image_source(image)
+    if not image_src:
+        image_source = soup.select_one(".sidearm-story-template-media source[srcset]")
+        image_src = _image_source(image_source)
     out = {
         "recap_article_image": (
             urljoin(f"{BASE_URL.rstrip('/')}/", image_src)

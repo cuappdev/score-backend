@@ -154,7 +154,7 @@ class GameRepository:
         }
         if _time_for_lookup(time):
             query["time"] = time
-        
+
         # For city, state, and location, use flexible matching
         # This allows finding games even when TBD/TBA values change to real values
         city_conditions = []

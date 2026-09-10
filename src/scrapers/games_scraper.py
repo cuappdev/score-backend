@@ -297,7 +297,7 @@ def process_game_data(game_data):
         state,
         game_time,
     )
-    
+
     # If no tournament game found, try the regular lookup with opponent_id
     if not curr_game:
         curr_game = GameService.get_game_by_key_fields(
