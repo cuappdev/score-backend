@@ -112,7 +112,7 @@ def extract_teams_and_scores(box_score_section, sport):
         # Basketball box score includes a "Records" column at the end - exclude it
         if sport == 'basketball' and scores:
             scores = scores[:-1]
-        
+
         team_name = ' '.join(team_name.split())
         team_names.append(team_name)
         period_scores.append(scores)
@@ -126,15 +126,20 @@ def softball_summary(box_score_section):
         scoring_rows = scoring_section.find(TAG_TBODY)
         if scoring_rows:
             for row in scoring_rows.find_all(TAG_TR):
-                team = row.find_all(TAG_TD)[0].find(TAG_IMG)[ATTR_ALT]
-                inning = row.find_all(TAG_TD)[3].text.strip()
-                desc_cell = row.find_all(TAG_TD)[4]
+                cells = row.find_all(TAG_TD)
+                team_image = cells[0].find(TAG_IMG) if cells else None
+                if not team_image or not team_image.get(ATTR_ALT) or len(cells) < 7:
+                    continue
+
+                team = team_image[ATTR_ALT]
+                inning = cells[3].text.strip()
+                desc_cell = cells[4]
                 span = desc_cell.find(TAG_SPAN)
                 if span:
                     span.extract()
                 desc = desc_cell.get_text(strip=True)
-                cornell_score = int(row.find_all(TAG_TD)[5].get_text(strip=True) or 0)
-                opp_score = int(row.find_all(TAG_TD)[6].get_text(strip=True) or 0)
+                cornell_score = int(cells[5].get_text(strip=True) or 0)
+                opp_score = int(cells[6].get_text(strip=True) or 0)
                 summary.append({
                     'team': team,
                     'period': inning,

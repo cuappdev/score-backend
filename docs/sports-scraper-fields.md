@@ -103,26 +103,39 @@ populated by any sport parser.
 ## Score-breakdown fields
 
 For box-score sports, `scoreBreakdown` (`score_breakdown`) is a two-dimensional
-list of strings. It has no nested named fields; request it directly. Each
-inner list contains the period scores followed by the final score:
+list of strings. It has no nested named fields; request it directly.
+
+For baseball and softball, each inner list contains the inning scores followed
+by the raw box-score columns `R`, `H`, and `E`:
+
+```text
+[inning_1, inning_2, ..., inning_n, R, H, E]
+```
+
+`R` is the final runs/score, `H` is hits, and `E` is errors. The frontend may
+label the final-score column `F`, but the source box score uses `R`. Other
+box-score sports contain their period scores followed by the final score, with
+no `H`/`E` columns.
+
+Each inner list therefore contains the source table's score columns in order:
 
 ```text
 [
-  [period_score_1, period_score_2, ..., final_score],
-  [period_score_1, period_score_2, ..., final_score]
+  [period_score_1, period_score_2, ..., final_score, ...],
+  [period_score_1, period_score_2, ..., final_score, ...]
 ]
 ```
 
 | Sport | Score columns represented |
 | --- | --- |
-| Baseball | Innings and final score |
+| Baseball | Innings, final runs, hits, and errors (`R`, `H`, `E`) |
 | Basketball | Periods and final score; the source `Records` column is excluded |
 | Field Hockey | Periods and final score |
 | Football | Quarters and final score |
 | Ice Hockey | Periods and final score |
 | Lacrosse | Periods and final score |
 | Soccer | Period/half scores and final score |
-| Softball | Innings and final score |
+| Softball | Innings, final runs, hits, and errors (`R`, `H`, `E`) |
 
 The team rows are ordered with Cornell first for stored home-game data.
 Recap-link sports do not populate `boxScore` or `scoreBreakdown`.

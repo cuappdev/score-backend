@@ -191,7 +191,7 @@ def parse_schedule_page(url, sport, gender):
                 game_data["box_score"] = game_details.get("scoring_summary")
                 game_data["score_breakdown"] = game_details.get("scores")
 
-                if sport in ["Baseball", "Football", "Lacrosse"]:
+                if sport in ["Baseball", "Football", "Lacrosse", "Softball"]:
                     geo_location = (game_data["location"] or "").split("\n")[0]
                     if "Ithaca" in geo_location and game_data["box_score"]:
                         for event in game_data["box_score"]:
