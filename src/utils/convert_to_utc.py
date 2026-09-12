@@ -15,8 +15,18 @@ def parse_time_string(time_str):
     # sometimes written as p.m.
     time_str = time_str.replace("p.m.", "pm").replace("a.m.", "am")
     
+    # A date such as "Nov 15 (Sun)" is not a time. Require either a
+    # meridiem or a colon-formatted clock value before parsing.
+    has_meridiem = re.search(r'\b(?:am|pm)\b', time_str)
+    has_colon_time = re.search(r'(?<!\d)\d{1,2}:\d{2}(?!\d)', time_str)
+    if not has_meridiem and not has_colon_time:
+        return None
+
     # extract hours, minutes, and AM/PM
-    time_pattern = re.compile(r'(\d{1,2}):?(\d{2})?\s*(am|pm)?')
+    if has_meridiem:
+        time_pattern = re.compile(r'(\d{1,2}):?(\d{2})?\s*(am|pm)\b')
+    else:
+        time_pattern = re.compile(r'(\d{1,2}):(\d{2})')
     match = time_pattern.search(time_str)
     
     if not match:
@@ -26,7 +36,7 @@ def parse_time_string(time_str):
     minutes = match.group(2) or "00"
     
     # default to pm if not specified
-    am_pm = match.group(3) or "pm" 
+    am_pm = match.group(3) if has_meridiem else "pm"
     
     return f"{hours}:{minutes} {am_pm.upper()}"
 

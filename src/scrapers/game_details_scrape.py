@@ -1,7 +1,12 @@
 import re
+import logging
 import requests
 from bs4 import BeautifulSoup
+from urllib.parse import urljoin
 from src.utils.constants import *
+
+
+logger = logging.getLogger(__name__)
 
 def clean_name(name):
     """Strip extra information from player names, keeping only first and last name."""
@@ -24,6 +29,95 @@ def clean_name(name):
 def fetch_page(url):
     response = requests.get(url)
     return BeautifulSoup(response.text, 'html.parser')
+
+
+def fetch_recap_page(url):
+    response = requests.get(url, headers=HTTP_REQUEST_HEADERS, timeout=30)
+    response.raise_for_status()
+    return BeautifulSoup(response.text, "html.parser")
+
+
+def _metadata_content(soup, selector):
+    tag = soup.select_one(selector)
+    return tag.get("content") if tag else None
+
+
+def _tag_text_or_datetime(tag):
+    if not tag:
+        return None
+    return tag.get("datetime") or tag.get_text(" ", strip=True) or None
+
+
+def _published_at(soup):
+    """Extract the article's publication timestamp without empty/related dates."""
+    # Older Sidearm stories put the publication timestamp in this story-date
+    # block without a pubdate attribute.
+    for tag in soup.select(SIDEARM_STORY_PUBLISHED_TIME_FALLBACK):
+        value = _tag_text_or_datetime(tag)
+        if value:
+            return value
+
+    metadata_value = _metadata_content(soup, 'meta[property="article:published_time"]')
+    if metadata_value:
+        return metadata_value
+
+    # Newer stories use pubdate. Ignore empty placeholders and compact dates
+    # from related-story cards (for example, "09.11.26").
+    for tag in soup.select(SIDEARM_STORY_PUBLISHED_TIME):
+        value = _tag_text_or_datetime(tag)
+        if value and re.search(r"\b20\d{2}\b", value):
+            return value
+
+    return None
+
+
+def _first_image_url(soup, base_url):
+    image = soup.select_one(SIDEARM_STORY_IMAGE)
+    if image:
+        image_url = image.get("data-src") or image.get("src")
+        if image_url:
+            return urljoin(base_url, image_url)
+
+    # Some Sidearm stories put the responsive image only in a <source> tag.
+    source = soup.select_one(".sidearm-story-template-media source")
+    if source:
+        srcset = source.get("srcset", "").split(",")[0].strip().split(" ")[0]
+        if srcset:
+            return urljoin(base_url, srcset)
+
+    metadata_image = _metadata_content(soup, 'meta[property="og:image"]')
+    return urljoin(base_url, metadata_image) if metadata_image else None
+
+
+def scrape_sidearm_story_recap(url):
+    """Scrape the article metadata from a Sidearm recap page.
+
+    ``None`` means the page could not be fetched or parsed. A dictionary with
+    nullable fields means the page was fetched successfully, which lets the
+    schedule scraper preserve existing article data on transient failures.
+    """
+    if not url:
+        return None
+
+    try:
+        soup = fetch_recap_page(url)
+    except (requests.RequestException, ValueError) as exc:
+        logger.warning("Unable to fetch recap page %s: %s", url, exc)
+        return None
+    except Exception as exc:
+        logger.exception("Unexpected error fetching recap page %s: %s", url, exc)
+        return None
+
+    headline = soup.select_one(SIDEARM_STORY_HEADLINE)
+    return {
+        "recap_article_title": (
+            headline.get_text(" ", strip=True)
+            if headline
+            else _metadata_content(soup, 'meta[property="og:title"]')
+        ),
+        "recap_article_image": _first_image_url(soup, url),
+        "recap_published_at": _published_at(soup),
+    }
 
 def extract_teams_and_scores(box_score_section, sport):
     score_table = box_score_section.find(TAG_TABLE, class_=CLASS_SIDEARM_TABLE)
@@ -79,8 +173,6 @@ def soccer_summary(box_score_section):
                     'cor_score': cornell_score,
                     'opp_score': opp_score
                 })
-    if not summary:
-        summary = [{"message": "No scoring events in this game."}]
     return summary
 
 def football_summary(box_score_section):
@@ -105,8 +197,6 @@ def football_summary(box_score_section):
                     'cor_score': cornell_score,
                     'opp_score': opp_score
                 })
-    if not summary:
-        summary = [{"message": "No scoring events in this game."}]
     return summary
 
 def hockey_summary(box_score_section):
@@ -139,8 +229,6 @@ def hockey_summary(box_score_section):
                     'opp_score': opp_score,
                     'description': f"Scored by {scorer}. Assisted by {assist}."
                 })
-    if not summary:
-        summary = [{"message": "No scoring events in this game."}]
     return summary
 
 def field_hockey_summary(box_score_section):
@@ -167,8 +255,6 @@ def field_hockey_summary(box_score_section):
                 'cor_score': cornell_score,
                 'opp_score': opp_score
             })
-    if not summary:
-        summary = [{"message": "No scoring events in this game."}]
     return summary
 
 def lacrosse_summary(box_score_section):
@@ -201,8 +287,6 @@ def lacrosse_summary(box_score_section):
                     'cor_score': cor_score,
                     'opp_score': opp_score,
                 })
-    if not summary:
-        summary = [{"message": "No scoring events in this game."}]
     return summary
 
 def baseball_summary(box_score_section):
@@ -225,8 +309,6 @@ def baseball_summary(box_score_section):
                     'cor_score': cor_score,
                     'opp_score': opp_score
                 })
-    if not summary:
-        summary = [{"message": "No scoring events in this game."}]
     return summary
 
 # def basketball_summary(box_score_section):
@@ -288,7 +370,7 @@ def scrape_game(url, sport):
         return {
             'teams': team_names,
             'scores': scores,
-            'scoring_summary': scoring_summary or [{"message": "No scoring events in this game."}]
+            'scoring_summary': scoring_summary
         }
     
     return {"error": "Sport parser not found"}
