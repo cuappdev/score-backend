@@ -1,6 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 from src.services import GameService, TeamService
+from src.services.notification_service import NotificationService
 from src.utils.convert_to_utc import convert_to_utc
 from src.utils.constants import *
 from src.scrapers.game_details_scrape import scrape_game
@@ -63,6 +64,8 @@ def fetch_game_schedule():
     for thread in threads:
         thread.join()
 
+    NotificationService.send_upcoming_game_notifications()
+
 def parse_schedule_page(url, sport, gender):
     """
     Parse the game schedule page and store the data in the database.
@@ -76,6 +79,12 @@ def parse_schedule_page(url, sport, gender):
 
     page_title = soup.title.text.strip() if soup.title else ""
     season_years = extract_season_years(page_title)
+
+    # get tokens for devices that have this sport favorited here, add arg to process_game_data for tokens
+    # if curr date falls in between 12-24 hrs or 156-168 hrs before game date, send noti to tokens
+    # 
+    # alternate:
+    # if curr date falls in between 12-24 hrs or 156-168 hrs before game date, return game as { upcoming: true } and at the end calculate number of upcoming games and send notification to tokens
 
     for game_item in soup.select(GAME_TAG):
         game_data = {}
