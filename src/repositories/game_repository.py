@@ -203,10 +203,7 @@ class GameRepository:
                 return Game.from_dict(candidates[0]), level
             if len(candidates) > 1:
                 logger.warning(
-                    "Multiple games matched %s %s on %s at match level %s; skipping",
-                    sport,
-                    gender,
-                    date,
+                    "Multiple games matched at match level %s; skipping",
                     level,
                 )
                 return None, level
