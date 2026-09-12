@@ -293,20 +293,10 @@ def is_game_active(game_data: Dict) -> bool:
             not game.get('IsComplete', False)
         )
 
-# Sidearm sport codes that use volleyball rally scoring: every rally ends in a
-# point for one side, there is no game clock, and Period is the set number.
-VOLLEYBALL_SPORT_CODES = {"wvball", "mvball"}
-
-# Play types that end a volleyball rally. Only used when the feed omits the
-# per-play Score object, since that object is the more reliable signal. Roster and
-# stoppage entries in the play log ("UNH subs: ...", "Timeout UNH.",
-# "UNH starters: ...") match none of these and so stay out of the box score.
-VOLLEYBALL_SCORING_KEYWORDS = [
+SCORING_KEYWORDS = [
+    'GOAL', 'SCORE', 'TOUCHDOWN', 'FIELD GOAL', 'SHOT',
     'KILL', 'ACE', 'ATTACK', 'BLOCK', 'SERVICE', 'ERROR', 'HIT', 'SPIKE',
 ]
-
-# Play descriptions that count as scoring plays in the clock-based sports.
-SCORING_KEYWORDS = ['GOAL', 'SCORE', 'TOUCHDOWN', 'FIELD GOAL', 'SHOT']
 
 
 def convert_play_to_our_format(play: Dict, game: Dict) -> Optional[Dict]:
@@ -334,33 +324,23 @@ def convert_play_to_our_format(play: Dict, game: Dict) -> Optional[Dict]:
             visiting_team = game.get('VisitingTeam', {})
             cornell_is_home = home_team.get('Name', '').upper() == 'CORNELL'
 
-            is_volleyball = game.get('GlobalSportShortname', '') in VOLLEYBALL_SPORT_CODES
-
-            # Sidearm attaches a Score object to exactly the plays that changed the
-            # score, so its presence identifies a scoring play without having to
-            # read the narrative. Fall back to keywords when it is absent.
+            # Sidearm puts a Score object on exactly the plays that changed the
+            # score, so its presence is the signal. Keywords are the fallback.
             play_score = play.get('Score')
             if isinstance(play_score, dict):
                 is_scoring_play = True
-            elif is_volleyball:
-                is_scoring_play = any(
-                    keyword in description.upper() for keyword in VOLLEYBALL_SCORING_KEYWORDS
-                )
             else:
-                is_scoring_play = any(
-                    keyword in description.upper() for keyword in SCORING_KEYWORDS
-                )
+                label = (play.get('Type') or description).upper()
+                is_scoring_play = any(k in label for k in SCORING_KEYWORDS)
 
             if not is_scoring_play:
                 return None
 
-            # Volleyball has no clock - ClockSeconds is -1 on every play.
-            time = None if is_volleyball else convert_seconds_to_time(play.get('ClockSeconds', 0))
+            # Clock-less sports report ClockSeconds as -1 (volleyball, and any
+            # other sport scored in sets rather than against a clock).
+            clock_seconds = play.get('ClockSeconds', 0)
+            time = None if clock_seconds < 0 else convert_seconds_to_time(clock_seconds)
 
-            # Prefer the per-play score, which is the score *after* this play. The
-            # team-level score is only the current value, so using it would stamp
-            # every play in a batch with the same score. For volleyball this is the
-            # running score within the current set.
             if isinstance(play_score, dict):
                 home_score = play_score.get('HomeTeam', 0)
                 visiting_score = play_score.get('VisitingTeam', 0)
