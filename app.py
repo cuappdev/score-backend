@@ -226,4 +226,8 @@ def scrape_live_games():
 scrape_live_games()
 
 if __name__ == "__main__":
-    socketio.run(app, debug=True, host="0.0.0.0", port=8000)
+    # allow_unsafe_werkzeug lets the dev server handle WebSockets; production runs
+    # under gunicorn (see Dockerfile), so this path is local development only.
+    socketio.run(
+        app, debug=True, host="0.0.0.0", port=8000, allow_unsafe_werkzeug=True
+    )

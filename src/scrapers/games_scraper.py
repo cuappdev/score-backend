@@ -194,6 +194,16 @@ def parse_schedule_page(url, sport, gender):
         process_game_data(game_data)
 
 
+def first_or_none(result):
+    """
+    Normalize a game lookup result, which may be a single game, a list, or None,
+    into a single game or None.
+    """
+    if isinstance(result, list):
+        return result[0] if result else None
+    return result
+
+
 def process_game_data(game_data):
     """
     Process the game data and store it in the database.
@@ -271,33 +281,36 @@ def process_game_data(game_data):
             if str(final_box_cor_score) != str(cor_final) or str(final_box_opp_score) != str(opp_final):
                 game_data["score_breakdown"] = game_data["score_breakdown"][::-1]
 
-    # Try to find by tournament key fields to handle placeholder teams
-    curr_game = GameService.get_game_by_tournament_key_fields(
-        city,
-        game_data["date"],
-        game_data["gender"],
-        location,
-        game_data["sport"],
-        state
-    )
-    
-    # If no tournament game found, try the regular lookup with opponent_id
-    if not curr_game:
-        curr_game = GameService.get_game_by_key_fields(
+    curr_game = first_or_none(
+        GameService.get_game_by_tournament_key_fields(
             city,
             game_data["date"],
             game_data["gender"],
             location,
-            team.id,
             game_data["sport"],
             state
         )
+    )
 
-    if isinstance(curr_game, list):
-        if curr_game:
-            curr_game = curr_game[0]
-        else:
+    if curr_game:
+        existing_team = TeamService.get_team_by_id(curr_game.opponent_id)
+        if not (existing_team and is_tournament_placeholder_team(existing_team.name)):
             curr_game = None
+
+    # If no tournament game found, try the regular lookup with opponent_id
+    if not curr_game:
+        curr_game = first_or_none(
+            GameService.get_game_by_key_fields(
+                city,
+                game_data["date"],
+                game_data["gender"],
+                location,
+                team.id,
+                game_data["sport"],
+                state
+            )
+        )
+
     if curr_game:
         updates = {
             "time": game_time,
@@ -390,6 +403,12 @@ def parse_live_page(url):
 
     # Keep only days where the date is today (compare date string to current date)
     live_games = get_live_games(data)
+
+    seen_stats_urls = set()
     for game in live_games:
-        # print("game: ", game)
+        stats_url = ((game.get("media") or {}).get("stats") or {}).get("url")
+        if stats_url:
+            if stats_url in seen_stats_urls:
+                continue
+            seen_stats_urls.add(stats_url)
         GameService.update_live_game(game)

@@ -33,8 +33,14 @@ def register_websocket_events(socketio):
         emit('connected', {'clientId': sid, 'status': 'success'})
 
     @socketio.on('disconnect')
-    def handle_disconnect():
-        """Handle client disconnection. request.sid is still available here."""
+    def handle_disconnect(reason=None):
+        """
+        Handle client disconnection. request.sid is still available here.
+
+        Flask-SocketIO 5.x passes a disconnect reason, so accept it optionally -
+        without the parameter the handler raises and subscriptions are never
+        cleaned up, leaving dead sids in game_subscribers.
+        """
         sid = request.sid
         logger.info(f"Client disconnected: {sid}")
 

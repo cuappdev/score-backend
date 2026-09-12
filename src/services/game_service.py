@@ -1,10 +1,15 @@
 from src.repositories.game_repository import GameRepository
 from src.models.game import Game
 from src.services.team_service import TeamService
-from src.utils.helpers import is_tournament_placeholder_team, sidearm_dates_match
+from src.utils.helpers import (
+    build_sidearm_game_json_url,
+    get_with_retries,
+    is_tournament_placeholder_team,
+    parse_sidearm_stats_url,
+    sidearm_dates_match,
+)
 from typing import Dict, List, Optional, Tuple
 from pymongo.errors import DuplicateKeyError
-import requests
 from bs4 import BeautifulSoup
 from src.utils.constants import SIDEARM_SPORTS
 import logging
@@ -181,18 +186,29 @@ class GameService:
         """
         # update the game with the new score, box score, and score breakdown
         # GameRepository.update_by_id(game.id, game)
-        if game["media"]["stats"] is not None and game["media"]["stats"]["url"] != None:
-            stats_url = game["media"]["stats"]["url"]
-            # handle sidearmstats for now
-            if not stats_url.startswith("https://cornellbigred.com/sidearmstats/") and not stats_url.startswith("http://www.sidearmstats.com"):
+        stats = (game.get("media") or {}).get("stats") or {}
+        stats_url = stats.get("url")
+        if stats_url:
+            if "sidearmstats" not in stats_url:
                 return
 
-            sport = stats_url.split("/")[4]
+            # The event's global_sport_shortname is the same code sidearmstats uses
+            # in its paths, and is more reliable than parsing it out of the URL.
+            _, url_sport = parse_sidearm_stats_url(stats_url)
+            sport = (game.get("sport") or {}).get("global_sport_shortname") or url_sport
+
+            sport_info = SIDEARM_SPORTS.get(sport)
+            if not sport_info:
+                logger.warning(f"Unknown sidearm sport code '{sport}' for {stats_url}")
+                return
+
+            url = build_sidearm_game_json_url(stats_url, sport)
+            if not url:
+                return
+
             params = {
                 "detail": "full"
             }
-
-            # print("sport: ", sport)
 
             headers = {
                 "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
@@ -200,11 +216,16 @@ class GameService:
                 "Referer": stats_url,
             }
 
-            url = f"https://sidearmstats.com/cornell/{sport}/game.json"
-            r = requests.get(url, params=params, headers=headers, timeout=10)
-            game_data = r.json()
+            try:
+                r = get_with_retries(url, params=params, headers=headers, timeout=10)
+                game_data = r.json()
+            except Exception as e:
+                logger.error(f"Failed to fetch live game data from {url}: {str(e)}")
+                return
+
             game_data["sport_code"] = sport
-            game_data["sport_info"] = SIDEARM_SPORTS[sport]
+            game_data["sport_info"] = sport_info
+
 
             matching_game = GameService.find_matching_game(game_data)
             if matching_game:
@@ -263,7 +284,6 @@ class GameService:
             return None
         
         game = game_data['Game']
-        sport_info = game_data.get('sport_info', {})
         
         # Extract game information
         home_team = game.get('HomeTeam', {})
@@ -288,8 +308,17 @@ class GameService:
         if not game_date:
             return None
         
-        # Try to find matching game
-        sport, gender = SIDEARM_SPORTS[game.get('GlobalSportShortname', '')].values()
+        # Try to find matching game. Prefer the sport_info resolved by the caller,
+        # since a game.json can omit GlobalSportShortname.
+        sport_info = game_data.get('sport_info') or SIDEARM_SPORTS.get(
+            game.get('GlobalSportShortname', '')
+        )
+        if not sport_info:
+            logger.warning(
+                f"Unknown sidearm sport code '{game.get('GlobalSportShortname', '')}'"
+            )
+            return None
+        sport, gender = sport_info['sport'], sport_info['gender']
         
         # Search for games with this opponent and sport/gender
         games = GameService.get_games_by_sport_gender(sport, gender)
@@ -313,19 +342,27 @@ class GameService:
             List of unique new plays
         """
         unique_plays = []
-        
+        existing_ids = {
+            play.get('play_id') for play in existing_plays if play.get('play_id')
+        }
+
         for new_play in new_plays:
-            is_duplicate = False
-            
-            for existing_play in existing_plays:
-                if (new_play.get('description') == existing_play.get('description') and
-                    new_play.get('time') == existing_play.get('time')):
-                    is_duplicate = True
-                    break
-            
+            play_id = new_play.get('play_id')
+            if play_id:
+                is_duplicate = play_id in existing_ids
+            else:
+                is_duplicate = any(
+                    new_play.get('description') == existing_play.get('description') and
+                    new_play.get('time') == existing_play.get('time') and
+                    new_play.get('period') == existing_play.get('period')
+                    for existing_play in existing_plays
+                )
+
             if not is_duplicate:
                 unique_plays.append(new_play)
-        
+                if play_id:
+                    existing_ids.add(play_id)
+
         return unique_plays
     
     def update_score_breakdown(game_data: Dict, game: Game) -> List[List[str]]:
@@ -376,8 +413,16 @@ class GameService:
             return []
         
         game = game_data['Game']
-        plays = game.get('LastPlays', [])
-        
+
+        # Prefer the full play log, which arrives oldest-first and holds every play
+        # of the game. Game.LastPlays only carries the most recent five, so a poll
+        # interval busier than that would silently drop plays. Re-sending the whole
+        # log each poll is safe because plays are de-duplicated by their Sidearm id.
+        plays = game_data.get('Plays')
+        if not plays:
+            # LastPlays arrives newest-first, so reverse it to stay chronological.
+            plays = list(reversed(game.get('LastPlays') or []))
+
         converted_plays = []
         for play in plays:
             converted_play = convert_play_to_our_format(play, game)

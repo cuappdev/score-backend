@@ -18,6 +18,8 @@ class Game:
         - `box_score`       The scoring summary of the game (optional)
         - `score_breakdown` The scoring breakdown of the game (optional)
         - 'ticket_link'    The ticket link for the game (optional)
+        - `is_live`         Whether the game is currently being updated live (optional)
+        - `last_updated`    ISO timestamp of the last live update (optional)
     """
 
     def __init__(
@@ -37,6 +39,8 @@ class Game:
         team=None,
         utc_date=None,
         ticket_link=None,
+        is_live=None,
+        last_updated=None,
     ):
         self.id = id if id else str(ObjectId())
         self.city = city
@@ -53,6 +57,8 @@ class Game:
         self.team = team
         self.utc_date = utc_date
         self.ticket_link = ticket_link
+        self.is_live = is_live
+        self.last_updated = last_updated
 
     def to_dict(self):
         """
@@ -74,6 +80,8 @@ class Game:
             "team": self.team,
             "utc_date": self.utc_date,
             "ticket_link": self.ticket_link,
+            "is_live": self.is_live,
+            "last_updated": self.last_updated,
         }
 
     @staticmethod
@@ -97,4 +105,6 @@ class Game:
             team=data.get("team"),
             utc_date=data.get("utc_date"),
             ticket_link=data.get("ticket_link"),
+            is_live=data.get("is_live"),
+            last_updated=data.get("last_updated"),
         )

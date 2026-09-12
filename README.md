@@ -16,9 +16,10 @@ After cloning the project `cd` into the new directory and install dependencies w
 
 `pip install -r requirements.txt`
 
-To start the project, run the following command in the terminal
+To start the project, run the following commands in the terminal
 
 `python app.py`
+`brew services start mongodb-community@7.0`
 
 ## Setting up the database
 
