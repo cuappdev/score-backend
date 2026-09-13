@@ -16,7 +16,7 @@ import base64
 import logging
 import re
 import threading
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 
 logger = logging.getLogger(__name__)
@@ -67,7 +67,13 @@ def parse_game_links(game_item):
         tag = game_item.select_one(selector)
         href = tag.get("href") if tag else None
         if name == "ticket_link":
-            links[name] = urljoin(BASE_URL, href) if href else None
+            ticket_url = urljoin(BASE_URL, href) if href else None
+            if ticket_url and urlparse(ticket_url).scheme.casefold() in ALLOWED_URL_SCHEMES:
+                links[name] = ticket_url
+            else:
+                if ticket_url:
+                    logger.warning("Skipping ticket URL with unapproved scheme: %s", ticket_url)
+                links[name] = None
         else:
             links[name] = absolute_url(href)
     return links
