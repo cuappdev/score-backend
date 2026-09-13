@@ -4,6 +4,9 @@ from PIL import Image
 from io import BytesIO
 from collections import Counter
 import re
+from urllib.parse import urljoin, urlparse
+
+from src.utils.constants import ALLOWED_URL_HOSTS, ALLOWED_URL_SCHEMES, BASE_URL
 
 
 PLACEHOLDER_VALUES = {
@@ -11,6 +14,29 @@ PLACEHOLDER_VALUES = {
     "tba",
     "tbd"
 }
+
+
+def is_allowed_url(url):
+    """Allow only HTTP(S) URLs hosted by approved Cornell/Sidearm domains."""
+    if not url:
+        return False
+    parsed = urlparse(str(url))
+    hostname = (parsed.hostname or "").casefold().rstrip(".")
+    return (
+        parsed.scheme.casefold() in ALLOWED_URL_SCHEMES
+        and hostname in ALLOWED_URL_HOSTS
+    )
+
+
+def safe_absolute_url(link, base_url=BASE_URL):
+    """Resolve a link and return it only when its destination is approved."""
+    if not link:
+        return None
+    normalized = urljoin(base_url, str(link))
+    if not is_allowed_url(normalized):
+        logging.warning("Skipping unapproved URL: %s", normalized)
+        return None
+    return normalized
 
 
 def normalize_placeholder(value, fallback="TBA"):
@@ -37,6 +63,10 @@ def get_dominant_color(image_url, white_threshold=200, black_threshold=50):
         color: The hex code of the dominant color.
     """
     default_color = "#000000" 
+
+    if not is_allowed_url(image_url):
+        logging.warning("Skipping unapproved image URL: %s", image_url)
+        return default_color
 
     try:
         response = requests.get(image_url, timeout=30)

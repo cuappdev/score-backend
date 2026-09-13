@@ -3,7 +3,15 @@ from bs4 import BeautifulSoup
 from src.utils.convert_to_utc import convert_to_utc
 from src.utils.constants import *
 from src.scrapers.game_details_scrape import scrape_game, scrape_sidearm_story_recap
-from src.utils.helpers import get_dominant_color, normalize_game_data, is_tournament_placeholder_team, is_cornell_loss, normalize_placeholder
+from src.utils.helpers import (
+    get_dominant_color,
+    is_cornell_loss,
+    is_allowed_url,
+    is_tournament_placeholder_team,
+    normalize_game_data,
+    normalize_placeholder,
+    safe_absolute_url,
+)
 import base64
 import logging
 import re
@@ -46,7 +54,7 @@ def infer_game_year(date_text, season_years):
 
 
 def absolute_url(link):
-    return urljoin(BASE_URL.rstrip("/") + "/", link) if link else None
+    return safe_absolute_url(link)
 
 
 def parse_game_links(game_item):
@@ -57,7 +65,11 @@ def parse_game_links(game_item):
         "ticket_link": GAME_TICKET_LINK,
     }.items():
         tag = game_item.select_one(selector)
-        links[name] = absolute_url(tag.get("href")) if tag and tag.get("href") else None
+        href = tag.get("href") if tag else None
+        if name == "ticket_link":
+            links[name] = urljoin(BASE_URL, href) if href else None
+        else:
+            links[name] = absolute_url(href)
     return links
 
 
@@ -202,16 +214,26 @@ def parse_schedule_page(url, sport, gender):
             game_data["result"] = None
 
         links = parse_game_links(game_item)
-        box_score_tag = game_item.select_one(BOX_SCORE_TAG)
-        game_data["_box_score_scrape_succeeded"] = True
-        if box_score_tag:
-            box_score_link = box_score_tag["href"]
-            game_details = scrape_game(f"{BASE_URL}{box_score_link}", sport.lower())
-            if game_details.get('error') == 'Sport parser not found':
+        box_score_link = links["box_score_link"]
+        game_data["_box_score_scrape_succeeded"] = False
+        if box_score_link:
+            try:
+                game_details = scrape_game(box_score_link, sport.lower())
+            except Exception as exc:
+                logger.warning("Unable to scrape box score %s: %s", box_score_link, exc)
+                game_details = None
+
+            if not isinstance(game_details, dict) or game_details.get("error"):
+                if isinstance(game_details, dict) and game_details.get("error"):
+                    logger.warning(
+                        "Box score scrape failed for %s: %s",
+                        box_score_link,
+                        game_details["error"],
+                    )
                 game_data["box_score"] = None
                 game_data["score_breakdown"] = None
-                game_data["_box_score_scrape_succeeded"] = False
             else:
+                game_data["_box_score_scrape_succeeded"] = True
                 game_data["box_score"] = game_details.get("scoring_summary")
                 game_data["score_breakdown"] = game_details.get("scores")
 
@@ -234,13 +256,7 @@ def parse_schedule_page(url, sport, gender):
             game_data[field] = recap[field]
         game_data["_recap_scrape_succeeded"] = recap["success"]
 
-        ticket_link_tag = game_item.select_one(GAME_TICKET_LINK)
-        ticket_link = (
-        ticket_link_tag["href"] if ticket_link_tag else None
-        )
-        game_data["ticket_link"] = (
-            absolute_url(ticket_link) if ticket_link else None
-        )
+        game_data["ticket_link"] = links["ticket_link"]
         process_game_data(game_data)
 
 
@@ -273,6 +289,10 @@ def process_game_data(game_data):
         city, state, location = parse_schedule_location(game_data.get("location"))
     game_data.update(city=city, state=state, location=location)
     game_data = normalize_game_data(game_data)
+
+    if game_data.get("opponent_logo") and not is_allowed_url(game_data["opponent_logo"]):
+        logger.warning("Skipping unapproved opponent logo URL: %s", game_data["opponent_logo"])
+        game_data["opponent_logo"] = None
 
     team = TeamService.get_team_by_name(game_data["opponent_name"])
     if not team:

@@ -65,6 +65,13 @@ SIDEARM_STORY_PUBLISHED_TIME = "time[pubdate]"
 SIDEARM_STORY_PUBLISHED_TIME_FALLBACK = ".sidearm-story-template-date time"
 SIDEARM_STORY_IMAGE = ".sidearm-story-template-media img"
 
+# Hosts used by schedule links and Cornell/Sidearm-hosted images.
+ALLOWED_URL_SCHEMES = frozenset({"http", "https"})
+ALLOWED_URL_HOSTS = frozenset({
+    "cornellbigred.com",
+    "dxbhsrqyrr690.cloudfront.net",
+})
+
 # HTML Tags
 TAG_TABLE = 'table'
 TAG_SECTION = 'section'

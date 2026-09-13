@@ -4,6 +4,7 @@ import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 from src.utils.constants import *
+from src.utils.helpers import is_allowed_url
 
 
 logger = logging.getLogger(__name__)
@@ -27,11 +28,16 @@ def clean_name(name):
     return cleaned
 
 def fetch_page(url):
-    response = requests.get(url)
+    if not is_allowed_url(url):
+        raise ValueError(f"Unapproved box score URL: {url}")
+    response = requests.get(url, headers=HTTP_REQUEST_HEADERS, timeout=30)
+    response.raise_for_status()
     return BeautifulSoup(response.text, 'html.parser')
 
 
 def fetch_recap_page(url):
+    if not is_allowed_url(url):
+        raise ValueError(f"Unapproved recap URL: {url}")
     response = requests.get(url, headers=HTTP_REQUEST_HEADERS, timeout=30)
     response.raise_for_status()
     return BeautifulSoup(response.text, "html.parser")
@@ -311,6 +317,32 @@ def baseball_summary(box_score_section):
                 })
     return summary
 
+def softball_summary(box_score_section):
+    summary = []
+    scoring_section = box_score_section.find(TAG_SECTION, {ATTR_ARIA_LABEL: LABEL_SCORING_SUMMARY})
+    if scoring_section:
+        scoring_rows = scoring_section.find(TAG_TBODY)
+        if scoring_rows:
+            for row in scoring_rows.find_all(TAG_TR):
+                cells = row.find_all(TAG_TD)
+                team = cells[0].find(TAG_IMG)[ATTR_ALT]
+                inning = cells[3].get_text(strip=True)
+                description = cells[4]
+                span = description.find(TAG_SPAN)
+                if span:
+                    span.extract()
+                summary.append({
+                    'team': team,
+                    'period': inning,
+                    'inning': inning,
+                    'description': description.get_text(strip=True),
+                    'cor_score': int(cells[5].get_text(strip=True) or 0),
+                    'opp_score': int(cells[6].get_text(strip=True) or 0),
+                })
+    if not summary:
+        summary = [{"message": "No scoring events in this game."}]
+    return summary
+
 # def basketball_summary(box_score_section):
 #     summary = []
 #     scoring_section = box_score_section.find(TAG_SECTION, {ATTR_ARIA_LABEL: LABEL_SCORING_SUMMARY})
@@ -354,6 +386,7 @@ def scrape_game(url, sport):
         'field hockey': (lambda: extract_teams_and_scores(box_score_section, 'field hockey'), field_hockey_summary),
         'lacrosse': (lambda: extract_teams_and_scores(box_score_section, 'lacrosse'), lacrosse_summary),
         'baseball': (lambda: extract_teams_and_scores(box_score_section, 'baseball'), baseball_summary),
+        'softball': (lambda: extract_teams_and_scores(box_score_section, 'softball'), softball_summary),
         'basketball': (lambda: extract_teams_and_scores(box_score_section, 'basketball'), lambda _: []),
     }
 

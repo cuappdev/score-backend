@@ -182,7 +182,7 @@ class GameRepository:
 
     @staticmethod
     def find_by_scraper_match_levels(date, sport, gender, opponent_id, city, state, location):
-        """Find a game using the scraper's progressively weaker identity keys."""
+        """Find a game without matching unrelated opponents by date alone."""
         game_collection = db["game"]
         base_query = {"date": date, "sport": sport, "gender": gender}
         queries = [
@@ -194,7 +194,6 @@ class GameRepository:
                 "location": location,
             },
             {**base_query, "opponent_id": opponent_id},
-            base_query,
         ]
 
         for level, query in enumerate(queries, start=1):
