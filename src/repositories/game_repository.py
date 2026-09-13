@@ -181,6 +181,35 @@ class GameRepository:
         return [Game.from_dict(game) for game in games]
 
     @staticmethod
+    def find_by_scraper_match_levels(date, sport, gender, opponent_id, city, state, location):
+        """Find a game without matching unrelated opponents by date alone."""
+        game_collection = db["game"]
+        base_query = {"date": date, "sport": sport, "gender": gender}
+        queries = [
+            {
+                **base_query,
+                "opponent_id": opponent_id,
+                "city": city,
+                "state": state,
+                "location": location,
+            },
+            {**base_query, "opponent_id": opponent_id},
+        ]
+
+        for level, query in enumerate(queries, start=1):
+            candidates = list(game_collection.find(query))
+            if len(candidates) == 1:
+                return Game.from_dict(candidates[0]), level
+            if len(candidates) > 1:
+                logger.warning(
+                    "Multiple games matched at match level %s; skipping",
+                    level,
+                )
+                return None, level
+
+        return None, None
+
+    @staticmethod
     def find_by_sport(sport):
         """
         Retrieves all games from the MongoDB collection by its sport.
@@ -221,7 +250,9 @@ class GameRepository:
         }
         
         if after_date:
-            query["utc_date"] = {"$gt": after_date}
+            query["utc_date"] = {
+                "$gt": after_date.isoformat() if hasattr(after_date, "isoformat") else after_date
+            }
         
         games = game_collection.find(query)
         return [Game.from_dict(game) for game in games]
