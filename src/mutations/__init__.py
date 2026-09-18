@@ -6,5 +6,4 @@ from .login_user import LoginUser
 from .signup_user import SignupUser
 from .refresh_access_token import RefreshAccessToken
 from .logout_user import LogoutUser
-from .add_favorite_game import AddFavoriteGame
-from .remove_favorite_game import RemoveFavoriteGame
+from .favorite_game_mutations import AddFavoriteGame, RemoveFavoriteGame
