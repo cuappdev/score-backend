@@ -179,6 +179,8 @@ def soccer_summary(box_score_section):
                     'cor_score': cornell_score,
                     'opp_score': opp_score
                 })
+    if not summary:
+        summary = [{"message": "No scoring events in this game."}]
     return summary
 
 def football_summary(box_score_section):
@@ -203,6 +205,8 @@ def football_summary(box_score_section):
                     'cor_score': cornell_score,
                     'opp_score': opp_score
                 })
+    if not summary:
+        summary = [{"message": "No scoring events in this game."}]
     return summary
 
 def hockey_summary(box_score_section):
@@ -235,6 +239,8 @@ def hockey_summary(box_score_section):
                     'opp_score': opp_score,
                     'description': f"Scored by {scorer}. Assisted by {assist}."
                 })
+    if not summary:
+        summary = [{"message": "No scoring events in this game."}]
     return summary
 
 def field_hockey_summary(box_score_section):
@@ -261,6 +267,8 @@ def field_hockey_summary(box_score_section):
                 'cor_score': cornell_score,
                 'opp_score': opp_score
             })
+    if not summary:
+        summary = [{"message": "No scoring events in this game."}]
     return summary
 
 def lacrosse_summary(box_score_section):
@@ -293,6 +301,8 @@ def lacrosse_summary(box_score_section):
                     'cor_score': cor_score,
                     'opp_score': opp_score,
                 })
+    if not summary:
+        summary = [{"message": "No scoring events in this game."}]
     return summary
 
 def baseball_summary(box_score_section):
@@ -315,6 +325,8 @@ def baseball_summary(box_score_section):
                     'cor_score': cor_score,
                     'opp_score': opp_score
                 })
+    if not summary:
+        summary = [{"message": "No scoring events in this game."}]
     return summary
 
 def softball_summary(box_score_section):
@@ -325,7 +337,11 @@ def softball_summary(box_score_section):
         if scoring_rows:
             for row in scoring_rows.find_all(TAG_TR):
                 cells = row.find_all(TAG_TD)
-                team = cells[0].find(TAG_IMG)[ATTR_ALT]
+                if len(cells) < 7:
+                    continue
+
+                team_image = cells[0].find(TAG_IMG)
+                team = (team_image.get(ATTR_ALT) if team_image else None) or cells[0].get_text(strip=True)
                 inning = cells[3].get_text(strip=True)
                 description = cells[4]
                 span = description.find(TAG_SPAN)
