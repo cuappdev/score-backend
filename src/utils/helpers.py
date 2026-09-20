@@ -4,6 +4,50 @@ from PIL import Image
 from io import BytesIO
 from collections import Counter
 import re
+from urllib.parse import urljoin, urlparse
+
+from src.utils.constants import ALLOWED_URL_HOSTS, ALLOWED_URL_SCHEMES, BASE_URL
+
+
+PLACEHOLDER_VALUES = {
+    "",
+    "tba",
+    "tbd"
+}
+
+
+def is_allowed_url(url):
+    """Allow only HTTP(S) URLs hosted by approved Cornell/Sidearm domains."""
+    if not url:
+        return False
+    parsed = urlparse(str(url))
+    hostname = (parsed.hostname or "").casefold().rstrip(".")
+    return (
+        parsed.scheme.casefold() in ALLOWED_URL_SCHEMES
+        and hostname in ALLOWED_URL_HOSTS
+    )
+
+
+def safe_absolute_url(link, base_url=BASE_URL):
+    """Resolve a link and return it only when its destination is approved."""
+    if not link:
+        return None
+    normalized = urljoin(base_url, str(link))
+    if not is_allowed_url(normalized):
+        logging.warning("Skipping unapproved URL: %s", normalized)
+        return None
+    return normalized
+
+
+def normalize_placeholder(value, fallback="TBA"):
+    """Return a stable value for blank/unknown source fields."""
+    if value is None:
+        return fallback
+
+    normalized = " ".join(str(value).split())
+    if normalized.casefold() in PLACEHOLDER_VALUES:
+        return fallback
+    return normalized
 
 
 def get_dominant_color(image_url, white_threshold=200, black_threshold=50):
@@ -20,8 +64,13 @@ def get_dominant_color(image_url, white_threshold=200, black_threshold=50):
     """
     default_color = "#000000" 
 
+    if not is_allowed_url(image_url):
+        logging.warning("Skipping unapproved image URL: %s", image_url)
+        return default_color
+
     try:
-        response = requests.get(image_url)
+        response = requests.get(image_url, timeout=30)
+        response.raise_for_status()
         image = Image.open(BytesIO(response.content)).convert("RGBA")
 
         image = image.resize((50, 50))
@@ -59,13 +108,16 @@ def get_dominant_color(image_url, white_threshold=200, black_threshold=50):
     
 def normalize_game_data(data: dict):
     """
-    Normalize placeholder values like TBA/TBD into None.
-    """
-    placeholders = {"TBA", "TBD", "tba", "tbd"}
+    Normalize placeholder values consistently before matching or persistence.
 
-    for field in ["time", "city", "state"]:
-        if data.get(field) in placeholders:
-            data[field] = None
+    Named tournament labels are deliberately not included in the placeholder
+    set, so values such as "Quarterfinals" remain available for display and
+    tournament-team handling.
+    """
+
+    for field in ["time", "city", "state", "location", "opponent_name"]:
+        if field in data:
+            data[field] = normalize_placeholder(data.get(field))
 
     return data
 
@@ -80,7 +132,7 @@ def is_tournament_placeholder_team(team_name: str):
         "ECAC Hockey First Round", "ECAC Hockey Quarterfinals",
         "ECAC Hockey Semifinals", "ECAC Hockey Championship Game",
         "Regional Semifinals", "Regional Championship", "National Semifinals",
-        "TBD", "National Championship", "NCAA Wrestling Championships", "NCAA Northeast Regional CHampionships",
+        "TBA", "TBD", "National Championship", "NCAA Wrestling Championships", "NCAA Northeast Regional CHampionships",
         "NCAA Cross Country Championships", 
     ]
     return team_name in placeholder_team_names
@@ -93,9 +145,10 @@ def is_cornell_loss(result: str):
     if not result:
         return False
     
-    # Common loss indicators in result strings
-    loss_indicators = ["L", "Loss", "loss", "Defeated", "defeated"]
-    return any(indicator in result for indicator in loss_indicators)
+    # Match the result token rather than substrings (for example, the word
+    # "Cancelled" must not be treated as a loss because it contains "L").
+    normalized = " ".join(str(result).split()).casefold()
+    return bool(re.match(r"^(?:l|loss|defeated)\b", normalized))
 
 def extract_sport_from_title(title):
     """

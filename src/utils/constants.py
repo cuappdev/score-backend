@@ -9,6 +9,13 @@ IMAGE_PREFIX = "https://dxbhsrqyrr690.cloudfront.net/sidearm.nextgen.sites/corne
 # Base URL
 BASE_URL = "https://cornellbigred.com"
 
+# Use the same headers for schedule and detail requests. Sidearm pages can
+# return an incomplete response to requests that do not look like a browser.
+HTTP_REQUEST_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (compatible; CornellSportsScraper/1.0)",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+}
+
 # The tag for each game
 GAME_TAG = ".sidearm-schedule-game"
 
@@ -24,11 +31,12 @@ OPPONENT_LOGO_TAG = ".sidearm-schedule-game-opponent-logo img"
 # The attribute for the opponent image URL
 OPPONENT_LOGO_URL_ATTR = "data-src"
 
-# The tag for each date
-DATE_TAG = ".sidearm-schedule-game-opponent-date span"
+# The date/time block for each schedule row
+SCHEDULE_DATE_BLOCK_TAG = ".sidearm-schedule-game-opponent-date"
 
-# The tag for each time
-TIME_TAG = ".sidearm-schedule-game-opponent-date span + span"
+# The first span in the date/time block is the start date. The remaining spans
+# can contain a time, an end date for a multi-day event, or a display-only span.
+DATE_TAG = f"{SCHEDULE_DATE_BLOCK_TAG} span"
 
 # The tag for each location
 LOCATION_TAG = ".sidearm-schedule-game-location"
@@ -45,8 +53,24 @@ RESULT_TAG = ".sidearm-schedule-game-result"
 # The tag for the box score
 BOX_SCORE_TAG = ".sidearm-schedule-game-links-boxscore a"
 
+# The tag for the recap article link
+RECAP_TAG = ".sidearm-schedule-game-links-recap a"
+
 # The tag for the game ticket link
 GAME_TICKET_LINK = ".sidearm-schedule-game-links-tickets a"
+
+# Sidearm story article selectors
+SIDEARM_STORY_HEADLINE = "h1.sidearm-story-template-headline"
+SIDEARM_STORY_PUBLISHED_TIME = "time[pubdate]"
+SIDEARM_STORY_PUBLISHED_TIME_FALLBACK = ".sidearm-story-template-date time"
+SIDEARM_STORY_IMAGE = ".sidearm-story-template-media img"
+
+# Hosts used by schedule links and Cornell/Sidearm-hosted images.
+ALLOWED_URL_SCHEMES = frozenset({"http", "https"})
+ALLOWED_URL_HOSTS = frozenset({
+    "cornellbigred.com",
+    "dxbhsrqyrr690.cloudfront.net",
+})
 
 # HTML Tags
 TAG_TABLE = 'table'
@@ -86,7 +110,9 @@ ID_SET_5 = 'set-5'
 LABEL_SCORING_SUMMARY = 'Scoring Summary'
 LABEL_CU = 'CU'
 
-# The dictionary mapping sports urls to gender
+# The dictionary mapping every Cornell sports schedule URL to sport and gender.
+# A sport can still be scheduled here when its box-score parser is unavailable;
+# the schedule scraper will retain the game without detail fields.
 SPORT_URLS = {
     "baseball": {"sport": "Baseball", "gender": "Mens"},
     "mens-basketball": {"sport": "Basketball", "gender": "Mens"},
