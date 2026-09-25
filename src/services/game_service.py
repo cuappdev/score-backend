@@ -105,6 +105,14 @@ class GameService:
         )
 
     @staticmethod
+    def get_game_by_scraper_match_levels(
+        date, sport, gender, opponent_id, city, state, location
+    ):
+        return GameRepository.find_by_scraper_match_levels(
+            date, sport, gender, opponent_id, city, state, location
+        )
+
+    @staticmethod
     def get_games_by_sport(sport):
         """
         Retrieves all game by its sport.
@@ -131,6 +139,13 @@ class GameService:
         Retrieves all games between these two dates.
         """
         return GameRepository.find_by_date(startDate, endDate)
+
+    @staticmethod
+    def get_games_by_location(onCampus):
+        """
+        Retrieves all games by their location.
+        """
+        return GameRepository.find_by_location(onCampus)
 
     @staticmethod
     def get_tournament_games_by_sport_gender(sport, gender, after_date=None):

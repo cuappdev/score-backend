@@ -20,6 +20,10 @@ class Game:
         - 'ticket_link'    The ticket link for the game (optional)
         - `is_live`         Whether the game is currently being updated live (optional)
         - `last_updated`    ISO timestamp of the last live update (optional)
+        - `recap_link`     The recap article link (optional)
+        - `recap_article_title` The recap article title (optional)
+        - `recap_article_image` The recap article image (optional)
+        - `recap_published_at` The recap article publication date (optional)
     """
 
     def __init__(
@@ -41,6 +45,10 @@ class Game:
         ticket_link=None,
         is_live=None,
         last_updated=None,
+        recap_link=None,
+        recap_article_title=None,
+        recap_article_image=None,
+        recap_published_at=None,
     ):
         self.id = id if id else str(ObjectId())
         self.city = city
@@ -59,6 +67,10 @@ class Game:
         self.ticket_link = ticket_link
         self.is_live = is_live
         self.last_updated = last_updated
+        self.recap_link = recap_link
+        self.recap_article_title = recap_article_title
+        self.recap_article_image = recap_article_image
+        self.recap_published_at = recap_published_at
 
     def to_dict(self):
         """
@@ -82,6 +94,10 @@ class Game:
             "ticket_link": self.ticket_link,
             "is_live": self.is_live,
             "last_updated": self.last_updated,
+            "recap_link": self.recap_link,
+            "recap_article_title": self.recap_article_title,
+            "recap_article_image": self.recap_article_image,
+            "recap_published_at": self.recap_published_at,
         }
 
     @staticmethod
@@ -107,4 +123,8 @@ class Game:
             ticket_link=data.get("ticket_link"),
             is_live=data.get("is_live"),
             last_updated=data.get("last_updated"),
+            recap_link=data.get("recap_link"),
+            recap_article_title=data.get("recap_article_title"),
+            recap_article_image=data.get("recap_article_image"),
+            recap_published_at=data.get("recap_published_at"),
         )

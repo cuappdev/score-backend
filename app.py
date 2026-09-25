@@ -1,5 +1,6 @@
 import logging
 import argparse
+import os
 import signal
 import sys
 import time
@@ -9,7 +10,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from flask import Flask, request, g
+from flask import Flask, jsonify, request, g
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from flask_graphql import GraphQLView
@@ -31,6 +32,29 @@ from flask_apscheduler import APScheduler
 
 load_dotenv()
 from src.database import db
+from src.database import db, client
+
+import firebase_admin
+from firebase_admin import credentials
+
+SERVICE_ACCOUNT_PATH = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+
+
+def initialize_firebase():
+    """Initialize Firebase Admin once so Firebase ID tokens can be verified."""
+    if not firebase_admin._apps:
+        if not SERVICE_ACCOUNT_PATH:
+            raise ValueError(
+                "GOOGLE_APPLICATION_CREDENTIALS is not set. "
+                "Set it to the Firebase service-account JSON path."
+            )
+        cred = credentials.Certificate(SERVICE_ACCOUNT_PATH)
+        firebase_admin.initialize_app(cred)
+        logging.info("Firebase app initialized.")
+    return firebase_admin.get_app()
+
+
+initialize_firebase()
 
 app = Flask(__name__)
 
@@ -113,6 +137,15 @@ schema = Schema(query=Query, mutation=Mutation, auto_camelcase=True)
 
 def create_context():
     return {"team_loader": TeamLoader()}
+
+
+@app.route("/health")
+def health_check():
+    try:
+        client.admin.command("ping")
+        return jsonify({"status": "healthy", "database": "connected"}), 200
+    except Exception:
+        return jsonify({"status": "unhealthy", "database": "disconnected"}), 503
 
 
 app.add_url_rule(

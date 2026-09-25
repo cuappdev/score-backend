@@ -1,5 +1,18 @@
-from graphene import ObjectType, Field, String, List, Int
+from graphene import ID, ObjectType, Field, String, List, Int
 from datetime import datetime
+
+
+class UserType(ObjectType):
+    """Public application-user fields returned after authentication."""
+
+    id = ID(required=True)
+    email = String()
+    name = String()
+    favorite_game_ids = List(String, required=True)
+
+    @staticmethod
+    def resolve_id(user, info):
+        return str(user.id)
 
 class TeamType(ObjectType):
     """
@@ -91,6 +104,10 @@ class GameType(ObjectType):
         - `box_score`: The box score of the game.
         - `score_breakdown`: The score breakdown of the game.
         - `ticket_link`: The ticket link of the game. (optional)
+        - `recap_link`: The recap article link. (optional)
+        - `recap_article_title`: The recap article title. (optional)
+        - `recap_article_image`: The recap article image. (optional)
+        - `recap_published_at`: The recap article publication date. (optional)
     """
 
     id = String(required=False)
@@ -108,8 +125,12 @@ class GameType(ObjectType):
     team = Field(TeamType, required=False)
     utc_date = String(required=False)
     ticket_link = String(required=False)
+    recap_link = String(required=False)
+    recap_article_title = String(required=False)
+    recap_article_image = String(required=False)
+    recap_published_at = String(required=False)
     def __init__(
-        self, id, city, date, gender, location, opponent_id, result, sport, state, time, box_score=None, score_breakdown=None, utc_date=None, ticket_link=None
+        self, id, city, date, gender, location, opponent_id, result, sport, state, time, box_score=None, score_breakdown=None, utc_date=None, ticket_link=None, recap_link=None, recap_article_title=None, recap_article_image=None, recap_published_at=None
     ):
         self.id = id    
         self.city = city
@@ -125,6 +146,10 @@ class GameType(ObjectType):
         self.score_breakdown = score_breakdown
         self.utc_date = utc_date
         self.ticket_link = ticket_link
+        self.recap_link = recap_link
+        self.recap_article_title = recap_article_title
+        self.recap_article_image = recap_article_image
+        self.recap_published_at = recap_published_at
     @staticmethod
     def team_to_team_type(team_obj):
         if team_obj is None:
