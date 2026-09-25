@@ -11,11 +11,13 @@ from src.utils.helpers import (
     normalize_game_data,
     normalize_placeholder,
     safe_absolute_url,
+    get_with_retries,
 )
 import base64
 import logging
 import re
 import threading
+from datetime import date, timedelta, datetime, timezone
 from urllib.parse import urljoin, urlparse
 
 
@@ -53,6 +55,33 @@ def infer_game_year(date_text, season_years):
     return first_year
 
 
+def is_date_today(date_str):
+    """
+    Returns True if the given ISO date string (e.g. "2025-12-28T00:00:00")
+    is the current date. Compares only year, month, day; ignores time.
+    """
+    if not date_str:
+        return False
+    try:
+        date_clean = date_str.split(".")[0].replace("Z", "")
+        event_date = datetime.strptime(date_clean, "%Y-%m-%dT%H:%M:%S").date()
+        return event_date == date.today()
+    except (ValueError, TypeError):
+        return False
+
+
+def is_match_time_passed(time_str):
+    """
+    Returns True if the current time is past the given time (today).
+    time_str: e.g. "4:00 p.m." — assumes today's date.
+    """
+    if not time_str:
+        return False
+    today_str = date.today().strftime("%b %d %Y")
+    match_utc = convert_to_utc(today_str, time_str)
+    if match_utc is None:
+        return False
+    return datetime.now(timezone.utc) >= match_utc
 def absolute_url(link):
     return safe_absolute_url(link)
 
@@ -266,6 +295,14 @@ def parse_schedule_page(url, sport, gender):
         process_game_data(game_data)
 
 
+def first_or_none(result):
+    """
+    Normalize a game lookup result, which may be a single game, a list, or None,
+    into a single game or None.
+    """
+    if isinstance(result, list):
+        return result[0] if result else None
+    return result
 def _detail_updates(game_data):
     updates = {}
     if game_data.get("_box_score_scrape_succeeded", "box_score" in game_data):
@@ -355,48 +392,136 @@ def process_game_data(game_data):
             if str(final_box_cor_score) != str(cor_final) or str(final_box_opp_score) != str(opp_final):
                 game_data["score_breakdown"] = game_data["score_breakdown"][::-1]
 
-    curr_game, match_level = GameService.get_game_by_scraper_match_levels(
-        game_data["date"],
-        game_data["sport"],
-        game_data["gender"],
-        team.id,
-        city,
-        state,
-        location,
+    curr_game = first_or_none(
+        GameService.get_game_by_tournament_key_fields(
+            city,
+            game_data["date"],
+            game_data["gender"],
+            location,
+            game_data["sport"],
+            state
+        )
     )
-    if curr_game is None and match_level is not None:
-        return None
 
-    updates = {
-        "time": game_time,
-        "result": game_data["result"],
-        "utc_date": utc_date_str,
-        "city": city,
-        "location": location,
-        "state": state,
-        "opponent_id": team.id,
-        "ticket_link": game_data["ticket_link"],
-        **_detail_updates(game_data),
-    }
     if curr_game:
+        existing_team = TeamService.get_team_by_id(curr_game.opponent_id)
+        if not (existing_team and is_tournament_placeholder_team(existing_team.name)):
+            curr_game = None
+
+    # If no tournament game found, try the regular lookup with opponent_id
+    if not curr_game:
+        curr_game = first_or_none(
+            GameService.get_game_by_key_fields(
+                city,
+                game_data["date"],
+                game_data["gender"],
+                location,
+                team.id,
+                game_data["sport"],
+                state
+            )
+        )
+
+    if curr_game:
+        updates = {
+            "time": game_time,
+            "result": game_data["result"],
+            "box_score": game_data["box_score"],
+            "score_breakdown": game_data["score_breakdown"],
+            "utc_date": utc_date_str,
+            "city": city,
+            "location": location,
+            "state": state,
+            "ticket_link": game_data["ticket_link"]
+        }
+        
         current_team = TeamService.get_team_by_id(curr_game.opponent_id)
         if current_team and is_tournament_placeholder_team(current_team.name):
-            if is_cornell_loss(game_data["result"]) and utc_date_obj:
-                GameService.handle_tournament_loss(game_data["sport"], game_data["gender"], utc_date_obj)
+            updates["opponent_id"] = team.id
+            
+            if is_cornell_loss(game_data["result"]) and game_data["utc_date"]:
+                GameService.handle_tournament_loss(game_data["sport"], game_data["gender"], game_data["utc_date"])
+                        
         GameService.update_game(curr_game.id, updates)
-        return curr_game.id
+        return
 
-    create_data = {
-        **updates,
+    game_data = {
+        "city": city,
         "date": game_data["date"],
         "gender": game_data["gender"],
+        "location": location,
+        "opponent_id": team.id,
+        "result": game_data["result"],
         "sport": game_data["sport"],
-        "box_score": updates.get("box_score"),
-        "score_breakdown": updates.get("score_breakdown"),
-        "recap_link": game_data.get("recap_link"),
-        "recap_article_title": updates.get("recap_article_title"),
-        "recap_article_image": updates.get("recap_article_image"),
-        "recap_published_at": updates.get("recap_published_at"),
+        "state": state,
+        "time": game_time,
+        "box_score": game_data["box_score"],
+        "score_breakdown": game_data["score_breakdown"],
+        "utc_date": utc_date_str,
+        "ticket_link": game_data["ticket_link"]
     }
-    created = GameService.create_game(create_data)
-    return created.id if created else None
+    
+    GameService.create_game(game_data)
+
+def get_live_games(data):
+    """
+    Get live games from the given data.
+    """
+    today_games = [day for day in data if is_date_today(day.get("date", ""))][0].get("events", [])
+    return [game for game in today_games if is_match_time_passed(game.get("time", ""))]
+
+def fetch_live_games():
+    """
+    Fetch live games from the given URLs in parallel using threads.
+    Each sport is scraped in its own thread for improved performance.
+    """
+    url = LIVE_PREFIX
+
+    # create single thread for all sports
+    thread = threading.Thread(
+        target=parse_live_page,
+        args=(url,),
+        name=f"Scraper"
+    )
+    thread.daemon = True
+    thread.start()
+
+    # probably should add thread.join for cleanup
+
+def parse_live_page(url):
+    from src.services import GameService
+
+    today = date.today()
+    days_since_saturday = (today.weekday() - 5) % 7
+
+    # go back to most recent saturday
+    last_saturday = today - timedelta(days=days_since_saturday)
+
+    params = {
+        "type": "events",
+        "sport": 0,
+        "location": "all",
+        "date": last_saturday.strftime("%Y-%m-%dT00:00:00"),
+    }
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+        "Accept": "application/json, text/javascript, */*; q=0.01",
+        "Referer": LIVE_PREFIX,
+    }
+
+    url = "https://cornellbigred.com/services/responsive-calendar.ashx"
+    r = get_with_retries(url, params=params, headers=headers, timeout=15)
+    data = r.json()
+
+    # Keep only days where the date is today (compare date string to current date)
+    live_games = get_live_games(data)
+
+    seen_stats_urls = set()
+    for game in live_games:
+        stats_url = ((game.get("media") or {}).get("stats") or {}).get("url")
+        if stats_url:
+            if stats_url in seen_stats_urls:
+                continue
+            seen_stats_urls.add(stats_url)
+        GameService.update_live_game(game)
