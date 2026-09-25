@@ -105,14 +105,6 @@ class GameService:
         )
 
     @staticmethod
-    def get_game_by_scraper_match_levels(
-        date, sport, gender, opponent_id, city, state, location
-    ):
-        return GameRepository.find_by_scraper_match_levels(
-            date, sport, gender, opponent_id, city, state, location
-        )
-
-    @staticmethod
     def get_games_by_sport(sport):
         """
         Retrieves all game by its sport.
