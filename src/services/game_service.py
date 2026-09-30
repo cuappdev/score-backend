@@ -1,9 +1,21 @@
 from src.repositories.game_repository import GameRepository
 from src.models.game import Game
 from src.services.team_service import TeamService
-from src.utils.helpers import is_tournament_placeholder_team
+from src.utils.helpers import (
+    build_sidearm_game_json_url,
+    get_with_retries,
+    is_tournament_placeholder_team,
+    parse_sidearm_stats_url,
+    sidearm_dates_match,
+)
+from typing import Dict, List, Optional, Tuple
 from pymongo.errors import DuplicateKeyError
+from bs4 import BeautifulSoup
+from src.utils.constants import SIDEARM_SPORTS
+import logging
+from src.utils.helpers import convert_play_to_our_format
 
+logger = logging.getLogger(__name__)
 
 class GameService:
     @staticmethod
@@ -93,14 +105,6 @@ class GameService:
         )
 
     @staticmethod
-    def get_game_by_scraper_match_levels(
-        date, sport, gender, opponent_id, city, state, location
-    ):
-        return GameRepository.find_by_scraper_match_levels(
-            date, sport, gender, opponent_id, city, state, location
-        )
-
-    @staticmethod
     def get_games_by_sport(sport):
         """
         Retrieves all game by its sport.
@@ -181,3 +185,306 @@ class GameService:
         """
         deleted_count = GameService.delete_tournament_games_by_sport_gender(sport, gender, loss_date)
         return deleted_count
+    
+    @staticmethod
+    def update_live_game(game):
+        """
+        Update a live game with live game data from cornellbigred.com.
+        """
+        # update the game with the new score, box score, and score breakdown
+        # GameRepository.update_by_id(game.id, game)
+        stats = (game.get("media") or {}).get("stats") or {}
+        stats_url = stats.get("url")
+        if stats_url:
+            if "sidearmstats" not in stats_url:
+                return
+
+            # The event's global_sport_shortname is the same code sidearmstats uses
+            # in its paths, and is more reliable than parsing it out of the URL.
+            _, url_sport = parse_sidearm_stats_url(stats_url)
+            sport = (game.get("sport") or {}).get("global_sport_shortname") or url_sport
+
+            sport_info = SIDEARM_SPORTS.get(sport)
+            if not sport_info:
+                logger.warning(f"Unknown sidearm sport code '{sport}' for {stats_url}")
+                return
+
+            url = build_sidearm_game_json_url(stats_url, sport)
+            if not url:
+                return
+
+            params = {
+                "detail": "full"
+            }
+
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+                "Accept": "application/json, text/javascript, */*; q=0.01",
+                "Referer": stats_url,
+            }
+
+            try:
+                r = get_with_retries(url, params=params, headers=headers, timeout=10)
+                game_data = r.json()
+            except Exception as e:
+                logger.error(f"Failed to fetch live game data from {url}: {str(e)}")
+                return
+
+            game_data["sport_code"] = sport
+            game_data["sport_info"] = sport_info
+
+
+            matching_game = GameService.find_matching_game(game_data)
+            if matching_game:
+                game_id = matching_game.id
+                print("matching game id: ",game_id)
+                was_updated = GameService.update_game_with_new_data(matching_game, game_data)
+                # notify all subscribers
+                if was_updated:
+                    # Update live status and timestamp
+                    from datetime import datetime, timezone
+                    update_data = {
+                        'is_live': True,
+                        'last_updated': datetime.now(timezone.utc).isoformat()
+                    }
+                    GameService.update_game(game_id, update_data)
+                        
+                    # Refresh the game object
+                    matching_game = GameService.get_game_by_id(game_id)
+                        
+                    # Notify subscribers
+                    try:
+                        from src.websocket_manager import get_websocket_manager
+                        websocket_manager = get_websocket_manager()
+                        subscriber_count = websocket_manager.get_game_subscriber_count(game_id)
+                        logger.info(f"Notifying {subscriber_count} subscribers of game {game_id} update")
+                        
+                        # Prepare update data
+                        update_data = {
+                            'gameId': game_id,
+                            'isLive': True,
+                            'lastUpdated': datetime.now(timezone.utc).isoformat(),
+                            'boxScore': matching_game.box_score,
+                            'scoreBreakdown': matching_game.score_breakdown,
+                            'result': matching_game.result
+                        }
+                        
+                        # Broadcast to WebSocket subscribers
+                        websocket_manager.broadcast_game_update(game_id, update_data)
+                        
+                    except Exception as e:
+                        logger.error(f"Failed to send WebSocket notification for game {game_id}: {str(e)}")
+            else:
+                print("create new game in db")
+    
+    def find_matching_game(game_data: Dict) -> Optional[Game]:
+        """
+        Find the matching game in our database based on Sidearm data.
+        
+        Args:
+            game_data: Game data from Sidearm API
+            
+        Returns:
+            Matching Game object or None
+        """
+        if not game_data or 'Game' not in game_data:
+            return None
+        
+        game = game_data['Game']
+        
+        # Extract game information
+        home_team = game.get('HomeTeam', {})
+        visiting_team = game.get('VisitingTeam', {})
+        
+        # Determine opponent
+        if home_team.get('Name', '').upper() == 'CORNELL':
+            opponent_name = visiting_team.get('Name', '')
+        else:
+            opponent_name = home_team.get('Name', '')
+        
+        # Find opponent team in our database
+        print("opponent_name: ", opponent_name)
+        opponent_team = TeamService.get_teams_by_name_containing(opponent_name)
+        if not opponent_team:
+            logger.warning(f"Could not find opponent team: {opponent_name}")
+            return None
+        
+        
+        # Get game date
+        game_date = game.get('Date', '')
+        if not game_date:
+            return None
+        
+        # Try to find matching game. Prefer the sport_info resolved by the caller,
+        # since a game.json can omit GlobalSportShortname.
+        sport_info = game_data.get('sport_info') or SIDEARM_SPORTS.get(
+            game.get('GlobalSportShortname', '')
+        )
+        if not sport_info:
+            logger.warning(
+                f"Unknown sidearm sport code '{game.get('GlobalSportShortname', '')}'"
+            )
+            return None
+        sport, gender = sport_info['sport'], sport_info['gender']
+        
+        # Search for games with this opponent and sport/gender
+        games = GameService.get_games_by_sport_gender(sport, gender)
+        
+        for db_game in games:
+            for opp_team in opponent_team:
+                if (db_game.opponent_id == opp_team.id and 
+                    sidearm_dates_match(db_game.date, game_date)):
+                    return db_game
+        return None
+    
+    def filter_duplicate_plays(existing_plays: List[Dict], new_plays: List[Dict]) -> List[Dict]:
+        """
+        Filter out plays that already exist in the game.
+        
+        Args:
+            existing_plays: List of existing plays
+            new_plays: List of new plays to check
+            
+        Returns:
+            List of unique new plays
+        """
+        unique_plays = []
+        existing_ids = {
+            play.get('play_id') for play in existing_plays if play.get('play_id')
+        }
+
+        for new_play in new_plays:
+            play_id = new_play.get('play_id')
+            if play_id:
+                is_duplicate = play_id in existing_ids
+            else:
+                is_duplicate = any(
+                    new_play.get('description') == existing_play.get('description') and
+                    new_play.get('time') == existing_play.get('time') and
+                    new_play.get('period') == existing_play.get('period')
+                    for existing_play in existing_plays
+                )
+
+            if not is_duplicate:
+                unique_plays.append(new_play)
+                if play_id:
+                    existing_ids.add(play_id)
+
+        return unique_plays
+    
+    def update_score_breakdown(game_data: Dict, game: Game) -> List[List[str]]:
+        """
+        Update score breakdown based on live data.
+        
+        Args:
+            game_data: Live data from Sidearm API
+            game: Game object
+            
+        Returns:
+            Updated score breakdown
+        """
+        if not game_data or 'Game' not in game_data:
+            return game.score_breakdown or []
+        
+        game_info = game_data['Game']
+        home_team = game_info.get('HomeTeam', {})
+        visiting_team = game_info.get('VisitingTeam', {})
+        
+        # Determine which team is Cornell
+        if home_team.get('Name', '').upper() == 'CORNELL':
+            cor_period_scores = home_team.get('PeriodScores', [])
+            opp_period_scores = visiting_team.get('PeriodScores', [])
+        else:
+            cor_period_scores = visiting_team.get('PeriodScores', [])
+            opp_period_scores = home_team.get('PeriodScores', [])
+        
+        # Convert to our format
+        score_breakdown = [[], []]
+        for i in range(len(cor_period_scores)):
+            score_breakdown[0].append(str(cor_period_scores[i]))
+            score_breakdown[1].append(str(opp_period_scores[i]) if i < len(opp_period_scores) else "0")
+        
+        return score_breakdown
+    
+    def get_game_plays(game_data: Dict) -> List[Dict]:
+        """
+        Extract plays from game data and convert to our format.
+        
+        Args:
+            game_data: Game data from Sidearm API
+            
+        Returns:
+            List of plays in our format
+        """
+        if not game_data or 'Game' not in game_data:
+            return []
+        
+        game = game_data['Game']
+
+        # Prefer the full play log, which arrives oldest-first and holds every play
+        # of the game. Game.LastPlays only carries the most recent five, so a poll
+        # interval busier than that would silently drop plays. Re-sending the whole
+        # log each poll is safe because plays are de-duplicated by their Sidearm id.
+        plays = game_data.get('Plays')
+        if not plays:
+            # LastPlays arrives newest-first, so reverse it to stay chronological.
+            plays = list(reversed(game.get('LastPlays') or []))
+
+        converted_plays = []
+        for play in plays:
+            converted_play = convert_play_to_our_format(play, game)
+            if converted_play:
+                converted_plays.append(converted_play)
+        
+        return converted_plays
+
+    def update_game_with_new_data(game: Game, game_data: Dict) -> bool:
+        """
+        Update a game with live score data.
+        
+        Args:
+            game: Game object to update
+            game_data: Live data from Sidearm API
+            
+        Returns:
+            True if game was updated, False otherwise
+        """
+        try:
+            # Get new plays
+            new_plays = GameService.get_game_plays(game_data)
+            
+            if not new_plays:
+                return False
+            
+            # Get existing box score
+            existing_box_score = game.box_score or []
+            
+            # Filter out duplicate plays
+            unique_plays = GameService.filter_duplicate_plays(existing_box_score, new_plays)
+            
+            if not unique_plays:
+                return False
+            
+            # Update box score
+            updated_box_score = existing_box_score + unique_plays
+            
+            # Update score breakdown if needed
+            updated_score_breakdown = GameService.update_score_breakdown(game_data, game)
+
+            print("updated box score: ",updated_box_score)
+            print("updated_score_breakdown: ",updated_score_breakdown)
+            
+            # Update the game
+            update_data = {
+                'box_score': updated_box_score,
+                'score_breakdown': updated_score_breakdown
+            }
+            
+            GameService.update_game(game.id, update_data)
+            logger.info(f"Updated game {game.id} with {len(unique_plays)} new plays")
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error updating game {game.id}: {str(e)}")
+            return False
