@@ -1,3 +1,7 @@
+from dotenv import load_dotenv
+
+load_dotenv()
+
 import requests
 from bs4 import BeautifulSoup
 from src.utils.convert_to_utc import convert_to_utc

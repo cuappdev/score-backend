@@ -44,6 +44,9 @@ LOCATION_TAG = ".sidearm-schedule-game-location"
 # The prefix for the sports schedules
 SCHEDULE_PREFIX = "https://cornellbigred.com/sports/"
 
+# The prefix for the live games
+LIVE_PREFIX = "https://cornellbigred.com/sports/calendar?vtype=list/"
+
 # The postfix for the sports schedules
 SCHEDULE_POSTFIX = "/schedule"
 
@@ -150,6 +153,52 @@ SPORT_URLS = {
     "womens-track-and-field": {"sport": "Track & Field", "gender": "Womens"},
     "womens-volleyball": {"sport": "Volleyball", "gender": "Womens"},
 }
+
+# Maps Sidearm's global sport shortname (the "global_sport_shortname" on a
+# calendar event, also the sport segment of a livestats URL) to our sport/gender.
+# Sport names must match SPORT_URLS exactly, since that is what gets written to
+# the database and what live games are looked up by.
+SIDEARM_SPORTS = {
+    "baseball": {"sport": "Baseball", "gender": "Mens"},
+    "equest": {"sport": "Equestrian", "gender": "Womens"},
+    "fencing": {"sport": "Fencing", "gender": "Womens"},
+    "fhockey": {"sport": "Field Hockey", "gender": "Womens"},
+    "football": {"sport": "Football", "gender": "Mens"},
+    "mbball": {"sport": "Basketball", "gender": "Mens"},
+    "mcross": {"sport": "Cross Country", "gender": "Mens"},
+    "mgolf": {"sport": "Golf", "gender": "Mens"},
+    "mhockey": {"sport": "Ice Hockey", "gender": "Mens"},
+    "mlax": {"sport": "Lacrosse", "gender": "Mens"},
+    "mpolo": {"sport": "Polo", "gender": "Mens"},
+    "mrow": {"sport": "Rowing - Lightweight", "gender": "Mens"},
+    "msoc": {"sport": "Soccer", "gender": "Mens"},
+    "msquash": {"sport": "Squash", "gender": "Mens"},
+    "mswim": {"sport": "Swimming & Diving", "gender": "Mens"},
+    "mten": {"sport": "Tennis", "gender": "Mens"},
+    "mtrack": {"sport": "Track & Field", "gender": "Mens"},
+    "row": {"sport": "Rowing - Heavyweight", "gender": "Mens"},
+    "sfootball": {"sport": "Sprint Football", "gender": "Mens"},
+    "softball": {"sport": "Softball", "gender": "Womens"},
+    "wbball": {"sport": "Basketball", "gender": "Womens"},
+    "wcross": {"sport": "Cross Country", "gender": "Womens"},
+    "wgym": {"sport": "Gymnastics", "gender": "Womens"},
+    "whockey": {"sport": "Ice Hockey", "gender": "Womens"},
+    "wlax": {"sport": "Lacrosse", "gender": "Womens"},
+    "wpolo": {"sport": "Polo", "gender": "Womens"},
+    "wrestling": {"sport": "Wrestling", "gender": "Mens"},
+    # trailing space matches SPORT_URLS["womens-rowing"]
+    "wrow": {"sport": "Rowing ", "gender": "Womens"},
+    "wsail": {"sport": "Sailing", "gender": "Womens"},
+    "wsoc": {"sport": "Soccer", "gender": "Womens"},
+    "wsquash": {"sport": "Squash", "gender": "Womens"},
+    "wswim": {"sport": "Swimming & Diving", "gender": "Womens"},
+    "wten": {"sport": "Tennis", "gender": "Womens"},
+    "wtrack": {"sport": "Track & Field", "gender": "Womens"},
+    "wvball": {"sport": "Volleyball", "gender": "Womens"},
+}
+
+# The URL for the squash stats
+SQUASH_STATS_URL = "https://api.ussquash.com/resources/leagues/scorecards/live"
 
 IMAGE_BASE_URL = (
     "https://dxbhsrqyrr690.cloudfront.net/sidearm.nextgen.sites/cornellbigred.com"
