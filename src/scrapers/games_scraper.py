@@ -426,46 +426,44 @@ def process_game_data(game_data):
             )
         )
 
+    # _detail_updates only writes box_score/score_breakdown and the recap fields
+    # when their scrape actually succeeded, so a failed scrape leaves the stored
+    # values alone instead of filling it with None
+    updates = {
+        "time": game_time,
+        "result": game_data["result"],
+        "utc_date": utc_date_str,
+        "city": city,
+        "location": location,
+        "state": state,
+        "opponent_id": team.id,
+        "ticket_link": game_data["ticket_link"],
+        **_detail_updates(game_data),
+    }
+
     if curr_game:
-        updates = {
-            "time": game_time,
-            "result": game_data["result"],
-            "box_score": game_data["box_score"],
-            "score_breakdown": game_data["score_breakdown"],
-            "utc_date": utc_date_str,
-            "city": city,
-            "location": location,
-            "state": state,
-            "ticket_link": game_data["ticket_link"]
-        }
-        
         current_team = TeamService.get_team_by_id(curr_game.opponent_id)
         if current_team and is_tournament_placeholder_team(current_team.name):
-            updates["opponent_id"] = team.id
-            
-            if is_cornell_loss(game_data["result"]) and game_data["utc_date"]:
-                GameService.handle_tournament_loss(game_data["sport"], game_data["gender"], game_data["utc_date"])
-                        
+            if is_cornell_loss(game_data["result"]) and utc_date_obj:
+                GameService.handle_tournament_loss(game_data["sport"], game_data["gender"], utc_date_obj)
         GameService.update_game(curr_game.id, updates)
-        return
+        return curr_game.id
 
-    game_data = {
-        "city": city,
+    create_data = {
+        **updates,
         "date": game_data["date"],
         "gender": game_data["gender"],
-        "location": location,
-        "opponent_id": team.id,
-        "result": game_data["result"],
         "sport": game_data["sport"],
-        "state": state,
-        "time": game_time,
-        "box_score": game_data["box_score"],
-        "score_breakdown": game_data["score_breakdown"],
-        "utc_date": utc_date_str,
-        "ticket_link": game_data["ticket_link"]
+        "box_score": updates.get("box_score"),
+        "score_breakdown": updates.get("score_breakdown"),
+        "recap_link": game_data.get("recap_link"),
+        "recap_article_title": updates.get("recap_article_title"),
+        "recap_article_image": updates.get("recap_article_image"),
+        "recap_published_at": updates.get("recap_published_at"),
     }
-    
-    GameService.create_game(game_data)
+
+    created = GameService.create_game(create_data)
+    return created.id if created else None
 
 def get_live_games(data):
     """
