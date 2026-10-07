@@ -17,7 +17,7 @@ import logging
 import re
 import threading
 from urllib.parse import urljoin, urlparse
-
+from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 RECAP_FIELDS = ["recap_article_title", "recap_article_image", "recap_published_at"]
@@ -129,31 +129,38 @@ def _recap(recap_link):
         return {field: None for field in RECAP_FIELDS} | {"success": False}
     return recap | {"success": True}
 
+def get_n_weeks_before_and_after_from_today(n):
+    today = datetime.now()
+    dates = []
+    for i in range(7, (n+1)*7, 7):
+        dates.append(today - timedelta(days=i))
+    for i in range(7, (n+1)*7, 7):
+        dates.append(today + timedelta(days=i))
+    return [date.strftime("%Y-%m-%d") for date in dates]
 
 def fetch_game_schedule():
     """
     Scrape the game schedule from the given URLs in parallel using threads.
     Each sport is scraped in its own thread for improved performance.
     """
-    threads = []
-    
-    for sport, data in SPORT_URLS.items():
-        url = SCHEDULE_PREFIX + sport + SCHEDULE_POSTFIX
+    dates = get_n_weeks_before_and_after_from_today(2)
 
-        # create thread for each sport
+    threads = []
+    for date in dates:
         thread = threading.Thread(
-            target=parse_schedule_page,
-            args=(url, data["sport"], data["gender"]),
-            name=f"Scraper-{sport}"
+            target=parse_calendar_data,
+            args=(date,),
+            name=f"Scraper-Calendar-{date}"
         )
+
         thread.daemon = True
-        threads.append(thread)
         thread.start()
+        threads.append(thread)
     
     for thread in threads:
         thread.join()
 
-def parse_schedule_page(url, sport, gender):
+def parse_calendar_data(date):
     """
     Parse the game schedule page and store the data in the database.
     Args:
@@ -161,109 +168,18 @@ def parse_schedule_page(url, sport, gender):
         sport (str): The sport of the games.
         gender (str): The gender of the games.
     """
+    url = f"{CALENDAR_URL}&date={date}"
     try:
-        response = requests.get(url, headers=HTTP_REQUEST_HEADERS, timeout=30)
+        response = requests.get(url, timeout=30)
         response.raise_for_status()
     except Exception as exc:
         logger.warning("Unable to fetch schedule %s: %s", url, exc)
         return
 
-    soup = BeautifulSoup(response.content, "html.parser")
-
-    page_title = soup.title.text.strip() if soup.title else ""
-    season_years = extract_season_years(page_title)
-
-    for game_item in soup.select(GAME_TAG):
-        game_data = {}
-        game_data["gender"] = gender
-        game_data["sport"] = sport
-
-        opponent_name_tag = game_item.select_one(OPPONENT_NAME_TAG_A) or game_item.select_one(OPPONENT_NAME_TAG)
-        game_data["opponent_name"] = normalize_placeholder(
-            opponent_name_tag.text.strip() if opponent_name_tag else None
-        )
-
-        opponent_logo_tag = game_item.select_one(OPPONENT_LOGO_TAG)
-        opponent_logo = (
-            opponent_logo_tag.get(OPPONENT_LOGO_URL_ATTR)
-            or opponent_logo_tag.get("src")
-            if opponent_logo_tag else None
-        )
-        game_data["opponent_logo"] = absolute_url(opponent_logo)
-
-        date_text, time_text = parse_schedule_date_and_time(game_item)
-
-        if not date_text:
-            logger.warning("Skipping %s row without a date", sport)
-            continue
-
-        game_year = infer_game_year(date_text, season_years)
-
-        # keep old date field for now
-        if date_text and game_year:
-            full_date_text = f"{date_text} {game_year}"
-            game_data["date"] = full_date_text
-            game_data["utc_date"] = convert_to_utc(full_date_text, time_text)
-        else:
-            game_data["date"] = date_text
-            game_data["utc_date"] = None
-
-        game_data["time"] = time_text
-
-        location_tag = game_item.select_one(LOCATION_TAG)
-        game_data["location"] = location_tag.get_text("\n", strip=True) if location_tag else None
-
-        result_tag = game_item.select_one(RESULT_TAG)
-        if result_tag:
-            game_data["result"] = result_tag.text.strip().replace("\n", "")
-        else:
-            game_data["result"] = None
-
-        links = parse_game_links(game_item)
-        box_score_link = links["box_score_link"]
-        game_data["_box_score_scrape_succeeded"] = False
-        if box_score_link:
-            try:
-                game_details = scrape_game(box_score_link, sport.lower())
-            except Exception as exc:
-                logger.warning("Unable to scrape box score %s: %s", box_score_link, exc)
-                game_details = None
-
-            if not isinstance(game_details, dict) or game_details.get("error"):
-                if isinstance(game_details, dict) and game_details.get("error"):
-                    logger.warning(
-                        "Box score scrape failed for %s: %s",
-                        box_score_link,
-                        game_details["error"],
-                    )
-                game_data["box_score"] = None
-                game_data["score_breakdown"] = None
-            else:
-                game_data["_box_score_scrape_succeeded"] = True
-                game_data["box_score"] = game_details.get("scoring_summary")
-                game_data["score_breakdown"] = game_details.get("scores")
-
-                if sport in ["Baseball", "Football", "Lacrosse"]:
-                    location_data = game_data["location"].split("\n") if game_data["location"] else [""]
-                    geo_location = location_data[0]
-                    is_home_game = "Ithaca" in geo_location
-
-                    if is_home_game and game_data["box_score"]:
-                        for event in game_data["box_score"]:
-                            if "cor_score" in event and "opp_score" in event:
-                                event["cor_score"], event["opp_score"] = event["opp_score"], event["cor_score"]
-        else:
-            game_data["box_score"] = None
-            game_data["score_breakdown"] = None
-
-        recap = _recap(links["recap_link"])
-        game_data["recap_link"] = links["recap_link"]
-        for field in RECAP_FIELDS:
-            game_data[field] = recap[field]
-        game_data["_recap_scrape_succeeded"] = recap["success"]
-
-        game_data["ticket_link"] = links["ticket_link"]
-        process_game_data(game_data)
+    events_data = response.json()
+    for day in events_data:
+        for game in day["events"]:
+            process_game_data(game)
 
 
 def _detail_updates(game_data):
@@ -289,42 +205,45 @@ def process_game_data(game_data):
     """
     from src.services import GameService, TeamService
 
-    if "city" in game_data or "state" in game_data:
-        city, state, location = game_data.get("city"), game_data.get("state"), game_data.get("location")
+    if "location" in game_data:
+        location = game_data.get("location")
+        city, state = location.split(",")
     else:
-        city, state, location = parse_schedule_location(game_data.get("location"))
+        city, state, location = "NA", "NA", "NO LOCATION PROVIDED"
+
     game_data.update(city=city, state=state, location=location)
     game_data = normalize_game_data(game_data)
 
-    if game_data.get("opponent_logo") and not is_allowed_url(game_data["opponent_logo"]):
+    if game_data.get("opponent") and not is_allowed_url(game_data.get("opponent").get("website")+game_data.get("opponent").get("image").get("filename")):
         logger.warning("Skipping unapproved opponent logo URL: %s", game_data["opponent_logo"])
         game_data["opponent_logo"] = None
 
-    team = TeamService.get_team_by_name(game_data["opponent_name"])
+    team = TeamService.get_team_by_name(game_data.get("opponent").get("title"))
     if not team:
+        logo_url = game_data.get("opponent").get("website")+game_data.get("opponent").get("image").get("filename")
         color = (
-            get_dominant_color(game_data["opponent_logo"])
-            if game_data["opponent_logo"]
+            get_dominant_color(logo_url)
+            if logo_url
             else "#FFFFFF"
         )
         encoded_opponent_logo = ""
-        if game_data["opponent_logo"]:
+        if logo_url:
             try:
-                response = requests.get(game_data["opponent_logo"], headers=HTTP_REQUEST_HEADERS, timeout=30)
+                response = requests.get(logo_url, headers=HTTP_REQUEST_HEADERS, timeout=30)
                 response.raise_for_status()
                 encoded_opponent_logo = base64.b64encode(response.content).decode('utf-8')
             except Exception as e:
                 print(f"Error fetching encoded opponent logo: {e}")
         team_data = {
             "color": color,
-            "image": game_data["opponent_logo"],
+            "image": logo_url,
             "b64_image": encoded_opponent_logo,
-            "name": game_data["opponent_name"],
+            "name": game_data.get("opponent").get("title"),
         }
         team = TeamService.create_team(team_data)
 
     # ISO format
-    utc_date_obj = game_data["utc_date"]
+    utc_date_obj = game_data["date"]
     utc_date_str = utc_date_obj.isoformat() if hasattr(utc_date_obj, "isoformat") else utc_date_obj
 
     game_time = normalize_placeholder(game_data.get("time"))
