@@ -266,6 +266,14 @@ def parse_schedule_page(url, sport, gender):
         process_game_data(game_data)
 
 
+def first_or_none(result):
+    """
+    Normalize a game lookup result, which may be a single game, a list, or None,
+    into a single game or None.
+    """
+    if isinstance(result, list):
+        return result[0] if result else None
+    return result
 def _detail_updates(game_data):
     updates = {}
     if game_data.get("_box_score_scrape_succeeded", "box_score" in game_data):
@@ -355,18 +363,39 @@ def process_game_data(game_data):
             if str(final_box_cor_score) != str(cor_final) or str(final_box_opp_score) != str(opp_final):
                 game_data["score_breakdown"] = game_data["score_breakdown"][::-1]
 
-    curr_game, match_level = GameService.get_game_by_scraper_match_levels(
-        game_data["date"],
-        game_data["sport"],
-        game_data["gender"],
-        team.id,
-        city,
-        state,
-        location,
+    curr_game = first_or_none(
+        GameService.get_game_by_tournament_key_fields(
+            city,
+            game_data["date"],
+            game_data["gender"],
+            location,
+            game_data["sport"],
+            state
+        )
     )
-    if curr_game is None and match_level is not None:
-        return None
 
+    if curr_game:
+        existing_team = TeamService.get_team_by_id(curr_game.opponent_id)
+        if not (existing_team and is_tournament_placeholder_team(existing_team.name)):
+            curr_game = None
+
+    # If no tournament game found, try the regular lookup with opponent_id
+    if not curr_game:
+        curr_game = first_or_none(
+            GameService.get_game_by_key_fields(
+                city,
+                game_data["date"],
+                game_data["gender"],
+                location,
+                team.id,
+                game_data["sport"],
+                state
+            )
+        )
+
+    # _detail_updates only writes box_score/score_breakdown and the recap fields
+    # when their scrape actually succeeded, so a failed scrape leaves the stored
+    # values alone instead of filling it with None
     updates = {
         "time": game_time,
         "result": game_data["result"],
@@ -378,6 +407,7 @@ def process_game_data(game_data):
         "ticket_link": game_data["ticket_link"],
         **_detail_updates(game_data),
     }
+
     if curr_game:
         current_team = TeamService.get_team_by_id(curr_game.opponent_id)
         if current_team and is_tournament_placeholder_team(current_team.name):
