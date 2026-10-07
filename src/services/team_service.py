@@ -83,6 +83,20 @@ class TeamService:
         return TeamRepository.find_by_name(name)
 
     @staticmethod
+    def get_teams_by_name_containing(name, case_sensitive=False):
+        """
+        Retrieve teams whose name contains the given substring.
+
+        Args:
+            name (str): The substring to search for in team names.
+            case_sensitive (bool): If True, match case; default False.
+
+        Returns:
+            list: The list of matching teams.
+        """
+        return TeamRepository.find_by_name_containing(name, case_sensitive=case_sensitive)
+
+    @staticmethod
     def get_teams_by_ids(team_ids):
         """
         Retrieve teams by a list of IDs.
