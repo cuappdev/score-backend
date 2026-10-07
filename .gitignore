@@ -7,3 +7,4 @@ __pycache__/
 ca-certificate.crt
 firebase_serviceAccountKey.json
 firebase-service-account-key.json
+firebase_serviceAccountKey.json
