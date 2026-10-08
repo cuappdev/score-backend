@@ -15,11 +15,13 @@ from src.utils.helpers import (
     normalize_game_data,
     normalize_placeholder,
     safe_absolute_url,
+    get_with_retries,
 )
 import base64
 import logging
 import re
 import threading
+from datetime import date, timedelta, datetime, timezone
 from urllib.parse import urljoin, urlparse
 
 
@@ -57,6 +59,33 @@ def infer_game_year(date_text, season_years):
     return first_year
 
 
+def is_date_today(date_str):
+    """
+    Returns True if the given ISO date string (e.g. "2025-12-28T00:00:00")
+    is the current date. Compares only year, month, day; ignores time.
+    """
+    if not date_str:
+        return False
+    try:
+        date_clean = date_str.split(".")[0].replace("Z", "")
+        event_date = datetime.strptime(date_clean, "%Y-%m-%dT%H:%M:%S").date()
+        return event_date == date.today()
+    except (ValueError, TypeError):
+        return False
+
+
+def is_match_time_passed(time_str):
+    """
+    Returns True if the current time is past the given time (today).
+    time_str: e.g. "4:00 p.m." — assumes today's date.
+    """
+    if not time_str:
+        return False
+    today_str = date.today().strftime("%b %d %Y")
+    match_utc = convert_to_utc(today_str, time_str)
+    if match_utc is None:
+        return False
+    return datetime.now(timezone.utc) >= match_utc
 def absolute_url(link):
     return safe_absolute_url(link)
 
@@ -432,5 +461,75 @@ def process_game_data(game_data):
         "recap_article_image": updates.get("recap_article_image"),
         "recap_published_at": updates.get("recap_published_at"),
     }
+
     created = GameService.create_game(create_data)
     return created.id if created else None
+
+def get_live_games(data):
+    """
+    Get live games from the given data.
+    """
+    today = next((day for day in data or [] if is_date_today(day.get("date", ""))), None)
+    if not today:
+        return []
+
+    # The feed sends "events": null for a day with nothing scheduled, so the
+    # get() default never fires - the key is present, its value is just None.
+    today_games = today.get("events") or []
+    return [game for game in today_games if is_match_time_passed(game.get("time", ""))]
+
+def fetch_live_games():
+    """
+    Fetch live games from the given URLs in parallel using threads.
+    Each sport is scraped in its own thread for improved performance.
+    """
+    url = LIVE_PREFIX
+
+    # create single thread for all sports
+    thread = threading.Thread(
+        target=parse_live_page,
+        args=(url,),
+        name=f"Scraper"
+    )
+    thread.daemon = True
+    thread.start()
+
+    # probably should add thread.join for cleanup
+
+def parse_live_page(url):
+    from src.services import GameService
+
+    today = date.today()
+    days_since_saturday = (today.weekday() - 5) % 7
+
+    # go back to most recent saturday
+    last_saturday = today - timedelta(days=days_since_saturday)
+
+    params = {
+        "type": "events",
+        "sport": 0,
+        "location": "all",
+        "date": last_saturday.strftime("%Y-%m-%dT00:00:00"),
+    }
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+        "Accept": "application/json, text/javascript, */*; q=0.01",
+        "Referer": LIVE_PREFIX,
+    }
+
+    url = "https://cornellbigred.com/services/responsive-calendar.ashx"
+    r = get_with_retries(url, params=params, headers=headers, timeout=15)
+    data = r.json()
+
+    # Keep only days where the date is today (compare date string to current date)
+    live_games = get_live_games(data)
+
+    seen_stats_urls = set()
+    for game in live_games:
+        stats_url = ((game.get("media") or {}).get("stats") or {}).get("url")
+        if stats_url:
+            if stats_url in seen_stats_urls:
+                continue
+            seen_stats_urls.add(stats_url)
+        GameService.update_live_game(game)
