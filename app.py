@@ -17,7 +17,7 @@ from flask_graphql import GraphQLView
 from flask_socketio import SocketIO
 from graphene import Schema
 from src.schema import Query, Mutation
-from src.scrapers.games_scraper import fetch_game_schedule
+from src.scrapers.games_scraper import fetch_game_schedule, fetch_live_games
 from src.scrapers.youtube_stats import fetch_videos
 from src.scrapers.daily_sun_scrape import fetch_news
 from src.services.article_service import ArticleService
@@ -221,8 +221,14 @@ if not args.no_scrape:
         logging.info("Scraping YouTube videos...")
         fetch_videos()
 
+    @scheduler.task("interval", id="scrape_live_games", seconds=30)
+    def scrape_live_games():
+        logging.info("Scraping live games...")
+        fetch_live_games()
+
     scrape_schedules()
     scrape_videos()
+    scrape_live_games()
 
 if not args.no_daily_sun and not args.no_scrape:
     @scheduler.task("interval", id="scrape_daily_sun", seconds=3600)
