@@ -13,3 +13,4 @@ pytz
 gunicorn
 flask-socketio
 firebase-admin==7.3.0
+simple-websocket
