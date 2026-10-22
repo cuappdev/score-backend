@@ -10,7 +10,12 @@ from datetime import datetime, timezone
 from typing import Dict, Optional
 from urllib.parse import urljoin, urlparse
 
-from src.utils.constants import ALLOWED_URL_HOSTS, ALLOWED_URL_SCHEMES, BASE_URL
+from src.utils.constants import (
+    ALLOWED_URL_HOSTS,
+    ALLOWED_URL_SCHEMES,
+    BASE_URL,
+    HTTP_REQUEST_HEADERS,
+)
 
 
 PLACEHOLDER_VALUES = {
@@ -520,11 +525,10 @@ def resolve_sidearm_stats_folder(stats_url: str) -> Optional[str]:
 
     folder = None
     try:
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
-            "Accept": "text/html,application/xhtml+xml",
-        }
-        response = get_with_retries(stats_url, headers=headers, timeout=15)
+        # The shared headers already ask for HTML, which is what this page is.
+        response = get_with_retries(
+            stats_url, headers=HTTP_REQUEST_HEADERS, timeout=15
+        )
         for pattern in _LIVESTATS_FOLDER_PATTERNS:
             match = pattern.search(response.text)
             if match:
