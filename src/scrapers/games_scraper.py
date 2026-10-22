@@ -513,7 +513,7 @@ def parse_live_page(url):
     }
 
     headers = {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+        **HTTP_REQUEST_HEADERS,
         "Accept": "application/json, text/javascript, */*; q=0.01",
         "Referer": LIVE_PREFIX,
     }
