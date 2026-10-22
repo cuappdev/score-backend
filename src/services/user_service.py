@@ -18,18 +18,9 @@ class UserService:
         return UserRepository.find_by_id(user_id)
 
     @staticmethod
+    def delete_user(user_id):
+        return UserRepository.delete_by_id(user_id)
+
+    @staticmethod
     def require_user(user_id):
         return UserRepository.find_by_id(user_id)
-
-    @staticmethod
-    def add_favorite_game(user_id, game_id):
-        return UserRepository.add_favorite_game(user_id, game_id)
-
-    @staticmethod
-    def remove_favorite_game(user_id, game_id):
-        return UserRepository.remove_favorite_game(user_id, game_id)
-
-    @staticmethod
-    def get_favorite_game_ids(user_id):
-        user = UserRepository.find_by_id(user_id)
-        return user.favorite_game_ids if user else []
