@@ -46,8 +46,6 @@ class RemoveBookmarkedHighlight(Mutation):
             raise GraphQLError("User not found.")
         if not highlight_id.strip():
             raise GraphQLError("Highlight ID is required.")
-        if not YoutubeVideoService.get_video_by_id(highlight_id):
-            raise GraphQLError("Highlight not found.")
         if not UserService.remove_bookmarked_highlight(user_id, highlight_id):
             raise GraphQLError("Could not remove highlight bookmark.")
         return RemoveBookmarkedHighlight(success=True)
