@@ -1,5 +1,4 @@
 from bson import ObjectId
-from pymongo import ReturnDocument
 
 from src.database import db
 from src.models.user import User
@@ -25,21 +24,3 @@ class UserRepository:
         """Delete an application user by MongoDB ID."""
         result = db["users"].delete_one({"_id": ObjectId(user_id)})
         return result.deleted_count > 0
-
-    @staticmethod
-    def add_favorite_game(user_id, game_id):
-        document = db["users"].find_one_and_update(
-            {"_id": ObjectId(user_id)},
-            {"$addToSet": {"favorite_game_ids": str(game_id)}},
-            return_document=ReturnDocument.AFTER,
-        )
-        return User.from_dict(document)
-
-    @staticmethod
-    def remove_favorite_game(user_id, game_id):
-        document = db["users"].find_one_and_update(
-            {"_id": ObjectId(user_id)},
-            {"$pull": {"favorite_game_ids": str(game_id)}},
-            return_document=ReturnDocument.AFTER,
-        )
-        return User.from_dict(document)

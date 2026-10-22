@@ -8,7 +8,6 @@ class UserType(ObjectType):
     id = ID(required=True)
     email = String()
     name = String()
-    favorite_game_ids = List(String, required=True)
 
     @staticmethod
     def resolve_id(user, info):

@@ -9,8 +9,6 @@ from src.mutations import (
     RefreshAccessToken,
     LogoutUser,
     DeleteUser,
-    AddFavoriteGame,
-    RemoveFavoriteGame,
 )
 from src.queries import GameQuery, TeamQuery, YoutubeVideoQuery, ArticleQuery, UserQuery
 
@@ -38,12 +36,6 @@ class Mutation(ObjectType):
     )
     delete_user = DeleteUser.Field(
         description="Permanently delete the current user's application and Firebase accounts (requires auth).",
-    )
-    add_favorite_game = AddFavoriteGame.Field(
-        description="Add a game to the current user's favorites (requires auth).",
-    )
-    remove_favorite_game = RemoveFavoriteGame.Field(
-        description="Remove a game from the current user's favorites (requires auth).",
     )
 
 

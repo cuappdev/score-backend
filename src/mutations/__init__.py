@@ -7,4 +7,3 @@ from .signup_user import SignupUser
 from .refresh_access_token import RefreshAccessToken
 from .logout_user import LogoutUser
 from .delete_user import DeleteUser
-from .favorite_game_mutations import AddFavoriteGame, RemoveFavoriteGame

@@ -101,6 +101,8 @@ def setup_database_indexes():
 
         # JWT blocklist: fast lookup by jti
         db["token_blocklist"].create_index([("jti", 1)], background=True)
+        # Account deletion revokes all tokens for the deleted user.
+        db["token_blocklist"].create_index([("user_id", 1)], background=True)
 
         # One application user may be linked to only one Firebase account.
         try:
