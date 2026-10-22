@@ -21,19 +21,51 @@ class UserRepository:
         return User.from_dict(db["users"].find_one({"_id": ObjectId(user_id)}))
 
     @staticmethod
-    def add_favorite_game(user_id, game_id):
+    def add_favorite_team(user_id, gender, sport):
         document = db["users"].find_one_and_update(
             {"_id": ObjectId(user_id)},
-            {"$addToSet": {"favorite_game_ids": str(game_id)}},
+            {
+                "$addToSet": {
+                    "favorite_teams": {
+                        "gender": str(gender).strip(),
+                        "sport": str(sport).strip(),
+                    }
+                }
+            },
             return_document=ReturnDocument.AFTER,
         )
         return User.from_dict(document)
 
     @staticmethod
-    def remove_favorite_game(user_id, game_id):
+    def remove_favorite_team(user_id, gender, sport):
         document = db["users"].find_one_and_update(
             {"_id": ObjectId(user_id)},
-            {"$pull": {"favorite_game_ids": str(game_id)}},
+            {
+                "$pull": {
+                    "favorite_teams": {
+                        "gender": str(gender).strip(),
+                        "sport": str(sport).strip(),
+                    }
+                }
+            },
+            return_document=ReturnDocument.AFTER,
+        )
+        return User.from_dict(document)
+
+    @staticmethod
+    def add_bookmarked_highlight(user_id, highlight_id):
+        document = db["users"].find_one_and_update(
+            {"_id": ObjectId(user_id)},
+            {"$addToSet": {"bookmarked_highlight_ids": str(highlight_id).strip()}},
+            return_document=ReturnDocument.AFTER,
+        )
+        return User.from_dict(document)
+
+    @staticmethod
+    def remove_bookmarked_highlight(user_id, highlight_id):
+        document = db["users"].find_one_and_update(
+            {"_id": ObjectId(user_id)},
+            {"$pull": {"bookmarked_highlight_ids": str(highlight_id).strip()}},
             return_document=ReturnDocument.AFTER,
         )
         return User.from_dict(document)
