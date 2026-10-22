@@ -11,7 +11,7 @@ from src.utils.helpers import (
 from typing import Dict, List, Optional, Tuple
 from pymongo.errors import DuplicateKeyError
 from bs4 import BeautifulSoup
-from src.utils.constants import SIDEARM_SPORTS
+from src.utils.constants import HTTP_REQUEST_HEADERS, SIDEARM_SPORTS
 import logging
 from src.utils.helpers import convert_play_to_our_format
 
@@ -217,8 +217,10 @@ class GameService:
                 "detail": "full"
             }
 
+            # Build on the shared headers; this endpoint returns JSON and wants
+            # the stats page as the referer.
             headers = {
-                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+                **HTTP_REQUEST_HEADERS,
                 "Accept": "application/json, text/javascript, */*; q=0.01",
                 "Referer": stats_url,
             }
