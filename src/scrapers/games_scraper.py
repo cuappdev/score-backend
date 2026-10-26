@@ -15,12 +15,19 @@ from src.utils.helpers import (
 import base64
 import logging
 import re
-import threading
+import time
+from concurrent.futures import ThreadPoolExecutor, wait
 from urllib.parse import urljoin, urlparse
 
 
 logger = logging.getLogger(__name__)
 RECAP_FIELDS = ["recap_article_title", "recap_article_image", "recap_published_at"]
+
+# Cap how many sports we scrape at once so we never open an unbounded number of
+# outbound connections, and give the whole pass a wall-clock ceiling so a slow
+# or stalled sport can't hold the run open indefinitely (report F4).
+MAX_CONCURRENT_SPORTS = 4
+SCHEDULE_SCRAPE_DEADLINE_SECONDS = 10 * 60
 
 
 def extract_season_years(page_title):
@@ -132,26 +139,54 @@ def _recap(recap_link):
 
 def fetch_game_schedule():
     """
-    Scrape the game schedule from the given URLs in parallel using threads.
-    Each sport is scraped in its own thread for improved performance.
-    """
-    threads = []
-    
-    for sport, data in SPORT_URLS.items():
-        url = SCHEDULE_PREFIX + sport + SCHEDULE_POSTFIX
+    Scrape the game schedule for every sport concurrently.
 
-        # create thread for each sport
-        thread = threading.Thread(
-            target=parse_schedule_page,
-            args=(url, data["sport"], data["gender"]),
-            name=f"Scraper-{sport}"
+    Work is bounded on two axes: at most ``MAX_CONCURRENT_SPORTS`` sports run at
+    once, and the whole pass is capped at ``SCHEDULE_SCRAPE_DEADLINE_SECONDS``.
+    Previously each sport got its own thread and the caller did an unbounded
+    ``join()`` on every one, so a single stalled request (e.g. a slow remote
+    peer) could block the entire scrape forever and wedge the scheduler.
+    """
+    start = time.monotonic()
+    executor = ThreadPoolExecutor(
+        max_workers=MAX_CONCURRENT_SPORTS, thread_name_prefix="Scraper"
+    )
+    future_to_sport = {}
+    try:
+        for sport, data in SPORT_URLS.items():
+            url = SCHEDULE_PREFIX + sport + SCHEDULE_POSTFIX
+            future = executor.submit(
+                parse_schedule_page, url, data["sport"], data["gender"]
+            )
+            future_to_sport[future] = sport
+
+        done, not_done = wait(
+            future_to_sport, timeout=SCHEDULE_SCRAPE_DEADLINE_SECONDS
         )
-        thread.daemon = True
-        threads.append(thread)
-        thread.start()
-    
-    for thread in threads:
-        thread.join()
+
+        for future in done:
+            sport = future_to_sport[future]
+            exc = future.exception()
+            if exc is not None:
+                logger.warning("Schedule scrape failed for %s: %s", sport, exc)
+
+        for future in not_done:
+            logger.error(
+                "Schedule scrape for %s did not finish within %ss; abandoning it",
+                future_to_sport[future],
+                SCHEDULE_SCRAPE_DEADLINE_SECONDS,
+            )
+    finally:
+        # Never block shutdown on a stalled sport thread; pending-but-unstarted
+        # work is cancelled, already-running threads unwind via request timeouts.
+        executor.shutdown(wait=False, cancel_futures=True)
+
+    logger.info(
+        "Game schedule pass finished in %.2fs (%d/%d sports completed)",
+        time.monotonic() - start,
+        len(future_to_sport) - len([f for f in future_to_sport if not f.done()]),
+        len(future_to_sport),
+    )
 
 def parse_schedule_page(url, sport, gender):
     """
