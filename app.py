@@ -1,10 +1,9 @@
 import logging
-import argparse
 import os
 import signal
 import sys
 import time
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from dotenv import load_dotenv
 
@@ -16,13 +15,15 @@ from flask_jwt_extended import JWTManager
 from flask_graphql import GraphQLView
 from graphene import Schema
 from src.schema import Query, Mutation
-from src.scrapers.games_scraper import fetch_game_schedule
-from src.scrapers.youtube_stats import fetch_videos
-from src.scrapers.daily_sun_scrape import fetch_news
-from src.services.article_service import ArticleService
 from src.utils.constants import JWT_SECRET_KEY
 from src.utils.team_loader import TeamLoader
 from src.database import db, client
+
+# NOTE: Background scraping and all APScheduler jobs intentionally live in
+# `scraper.py` (the dedicated `thestack_scraper` service), NOT here. When
+# Gunicorn imports this module it must only initialize Flask/GraphQL so that
+# web workers boot in milliseconds and never block on external websites,
+# YouTube, or MongoDB DDL. See Score_Backend_Incident_Report.md (F1/F2).
 
 import firebase_admin
 from firebase_admin import credentials
@@ -143,30 +144,6 @@ app.add_url_rule(
     ),
 )
 
-# Setup command line arguments
-def parse_args():
-    parser = argparse.ArgumentParser(description="Skip scraping tasks, for dev purposes.")
-    parser.add_argument(
-        "--no-scrape",
-        action="store_true",
-        help="Skips scraping tasks if set, useful for frontend development.",
-    )
-    parser.add_argument(
-        "--no-daily-sun",
-        action="store_true",
-        help="Skips using the Daily Sun page for alerts",
-    )
-    return parser.parse_args()
-
-# Only parse arguments when running directly (not when imported by gunicorn)
-if __name__ == "__main__":
-    args = parse_args()
-else:
-    # Default args when imported by gunicorn
-    class DefaultArgs:
-        no_scrape = False
-        no_daily_sun = False
-    args = DefaultArgs()
 
 def signal_handler(sig, frame):
     sys.exit(0)
@@ -175,61 +152,8 @@ def signal_handler(sig, frame):
 signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
 
-# Only parse arguments when running directly (not when imported by gunicorn)
-if __name__ == "__main__":
-    args = parse_args()
-else:
-    # Default args when imported by gunicorn
-    class DefaultArgs:
-        no_scrape = False
-        no_daily_sun = False
-    args = DefaultArgs()
-
-# Only run scraping tasks if not disabled
-if not args.no_scrape:
-    from flask_apscheduler import APScheduler
-    scheduler = APScheduler()
-    scheduler.init_app(app)
-    scheduler.start()
-
-    @scheduler.task("interval", id="cleanse_token_blocklist", seconds=86400)  # 24 hours
-    def cleanse_token_blocklist():
-        """Remove expired tokens from blocklist so the collection doesn't grow forever."""
-        from datetime import timezone
-        from src.database import db
-        result = db["token_blocklist"].delete_many(
-            {"expires_at": {"$lt": datetime.now(timezone.utc)}}
-        )
-        if result.deleted_count:
-            logging.info(f"Cleansed {result.deleted_count} expired token(s) from blocklist")
-
-    @scheduler.task("interval", id="scrape_schedules", seconds=43200) # 12 hours
-    def scrape_schedules():
-        logging.info("Scraping game schedules...")
-        fetch_game_schedule()
-
-    @scheduler.task("interval", id="scrape_videos", seconds=43200) # 12 hours
-    def scrape_videos():
-        logging.info("Scraping YouTube videos...")
-        fetch_videos()
-
-    scrape_schedules()
-    scrape_videos()
-
-if not args.no_daily_sun and not args.no_scrape:
-    @scheduler.task("interval", id="scrape_daily_sun", seconds=3600)
-    def scrape_daily_sun():
-        logging.info("Getting Daily Sun Sports News...")
-        fetch_news()
-
-    @scheduler.task("interval", id="cleanse_daily_sun_db", seconds=604800) # 1 week
-    def cleanse_daily_sun_db():
-        logging.info("Cleaning the Daily Sun database from old articles...")
-        ArticleService.cleanse_old_articles()
-
-    scrape_daily_sun()
-    cleanse_daily_sun_db()
-
 
 if __name__ == "__main__":
+    # Local development only. In production the app is served by Gunicorn
+    # (see Dockerfile) and background jobs are run by scraper.py.
     app.run(debug=True, host="0.0.0.0", port=8000)
