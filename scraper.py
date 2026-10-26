@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 # Hard wall-clock ceiling for a single game-schedule run. fetch_game_schedule()
 # bounds itself too, but this watchdog guarantees the APScheduler job slot is
 # always released even if a worker thread wedges, which is what caused
-# "maximum number of running instances reached (1)" for hours (report F3).
+# "maximum number of running instances reached (1)" for hours.
 GAME_SCRAPE_DEADLINE_SECONDS = 15 * 60
 
 

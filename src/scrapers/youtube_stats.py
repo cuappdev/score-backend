@@ -3,7 +3,7 @@ from src.utils.constants import CHANNEL_ID, VIDEO_LIMIT
 
 # (connect timeout, read timeout) in seconds. Requests has no default timeout,
 # so without this a slow YouTube/thumbnail peer can block the worker forever
-# and wedge the scheduler (report F4).
+# and wedge the scheduler.
 REQUEST_TIMEOUT = (5, 15)
 from dotenv import load_dotenv
 from src.models.youtube_video import YoutubeVideo

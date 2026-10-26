@@ -25,7 +25,7 @@ RECAP_FIELDS = ["recap_article_title", "recap_article_image", "recap_published_a
 
 # Cap how many sports we scrape at once so we never open an unbounded number of
 # outbound connections, and give the whole pass a wall-clock ceiling so a slow
-# or stalled sport can't hold the run open indefinitely (report F4).
+# or stalled sport can't hold the run open indefinitely.
 MAX_CONCURRENT_SPORTS = 4
 SCHEDULE_SCRAPE_DEADLINE_SECONDS = 10 * 60
 

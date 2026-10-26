@@ -23,7 +23,7 @@ from src.database import db, client
 # `scraper.py` (the dedicated `thestack_scraper` service), NOT here. When
 # Gunicorn imports this module it must only initialize Flask/GraphQL so that
 # web workers boot in milliseconds and never block on external websites,
-# YouTube, or MongoDB DDL. See Score_Backend_Incident_Report.md (F1/F2).
+# YouTube, or MongoDB DDL.
 
 import firebase_admin
 from firebase_admin import credentials
