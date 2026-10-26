@@ -11,6 +11,11 @@ import base64
 
 load_dotenv()
 
+# (connect timeout, read timeout) in seconds. Requests has no default timeout;
+# without this a slow Daily Sun response can block the scraper indefinitely
+# (report F4).
+REQUEST_TIMEOUT = (5, 15)
+
 
 def fetch_news():
     try:
@@ -19,7 +24,8 @@ def fetch_news():
             url,
             headers={
                 "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-            }
+            },
+            timeout=REQUEST_TIMEOUT,
         )
         response.raise_for_status()
         data = response.json()
@@ -48,7 +54,8 @@ def fetch_news():
                         article_url,
                         headers={
                             "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-                        }
+                        },
+                        timeout=REQUEST_TIMEOUT,
                     )
                     response.raise_for_status()
                     soup = BeautifulSoup(response.content, 'html.parser')
