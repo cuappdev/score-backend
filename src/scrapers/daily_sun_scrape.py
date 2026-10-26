@@ -12,8 +12,7 @@ import base64
 load_dotenv()
 
 # (connect timeout, read timeout) in seconds. Requests has no default timeout;
-# without this a slow Daily Sun response can block the scraper indefinitely
-# (report F4).
+# without this a slow Daily Sun response can block the scraper indefinitely.
 REQUEST_TIMEOUT = (5, 15)
 
 
