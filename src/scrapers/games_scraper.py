@@ -4,7 +4,7 @@ load_dotenv()
 
 import requests
 from bs4 import BeautifulSoup
-from src.utils.convert_to_utc import convert_to_utc
+from src.utils.convert_to_utc import convert_to_utc, parse_time_string
 from src.utils.constants import *
 from src.scrapers.game_details_scrape import scrape_game, scrape_sidearm_story_recap
 from src.utils.helpers import (
@@ -22,6 +22,10 @@ import logging
 import re
 import threading
 from datetime import date, timedelta, datetime, timezone
+import pytz
+
+# The calendar feed reports event dates and times in Cornell's local timezone.
+EASTERN_TZ = pytz.timezone("US/Eastern")
 from urllib.parse import urljoin, urlparse
 
 
@@ -59,17 +63,28 @@ def infer_game_year(date_text, season_years):
     return first_year
 
 
+def eastern_today():
+    """
+    Today's date in Cornell's timezone. The calendar feed labels events in
+    Eastern time, so comparing against the server's local date is wrong whenever
+    the two disagree: in a UTC container (see Dockerfile) anything after 8pm
+    Eastern already reads as tomorrow, which would skip evening games while they
+    are being played.
+    """
+    return datetime.now(EASTERN_TZ).date()
+
+
 def is_date_today(date_str):
     """
     Returns True if the given ISO date string (e.g. "2025-12-28T00:00:00")
-    is the current date. Compares only year, month, day; ignores time.
+    is the current date in Eastern time. Compares only year, month, day.
     """
     if not date_str:
         return False
     try:
         date_clean = date_str.split(".")[0].replace("Z", "")
         event_date = datetime.strptime(date_clean, "%Y-%m-%dT%H:%M:%S").date()
-        return event_date == date.today()
+        return event_date == eastern_today()
     except (ValueError, TypeError):
         return False
 
@@ -81,7 +96,14 @@ def is_match_time_passed(time_str):
     """
     if not time_str:
         return False
-    today_str = date.today().strftime("%b %d %Y")
+
+    # convert_to_utc falls back to midnight when it cannot read a clock value,
+    # which would make "TBA", "TBD" and "All Day" look started from midnight on.
+    # Require a real time before comparing.
+    if parse_time_string(time_str) is None:
+        return False
+
+    today_str = eastern_today().strftime("%b %d %Y")
     match_utc = convert_to_utc(today_str, time_str)
     if match_utc is None:
         return False
@@ -480,21 +502,14 @@ def get_live_games(data):
 
 def fetch_live_games():
     """
-    Fetch live games from the given URLs in parallel using threads.
-    Each sport is scraped in its own thread for improved performance.
+    Fetch live games and apply them.
+
+    Runs inline rather than spawning a thread: APScheduler already executes the
+    job on its own worker, and its default max_instances=1 then means a cycle
+    that overruns the 30s interval is skipped instead of piling up overlapping
+    scrapes that duplicate each other's work.
     """
-    url = LIVE_PREFIX
-
-    # create single thread for all sports
-    thread = threading.Thread(
-        target=parse_live_page,
-        args=(url,),
-        name=f"Scraper"
-    )
-    thread.daemon = True
-    thread.start()
-
-    # probably should add thread.join for cleanup
+    parse_live_page(LIVE_PREFIX)
 
 def parse_live_page(url):
     from src.services import GameService
@@ -532,4 +547,15 @@ def parse_live_page(url):
             if stats_url in seen_stats_urls:
                 continue
             seen_stats_urls.add(stats_url)
-        GameService.update_live_game(game)
+        try:
+            GameService.update_live_game(game)
+        except Exception as e:
+            # Keep going: one bad feed should not cost every other live game
+            # its update for this cycle.
+            logger.error(
+                "Failed to update live game %s (%s): %s",
+                game.get("id"),
+                stats_url or "no stats url",
+                e,
+                exc_info=True,
+            )
