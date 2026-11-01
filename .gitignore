@@ -6,3 +6,4 @@ __pycache__/
 .DS_Store
 ca-certificate.crt
 firebase-service-account-key.json
+firebase_serviceAccountKey.json
