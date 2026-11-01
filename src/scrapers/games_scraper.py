@@ -266,14 +266,48 @@ def parse_schedule_page(url, sport, gender):
         process_game_data(game_data)
 
 
-def first_or_none(result):
+def as_game_list(result):
     """
-    Normalize a game lookup result, which may be a single game, a list, or None,
-    into a single game or None.
+    Normalize a lookup result, which may be a single game, a list, or None,
+    into a list.
     """
+    if result is None:
+        return []
     if isinstance(result, list):
-        return result[0] if result else None
-    return result
+        return result
+    return [result]
+
+
+def narrow_by_time(candidates, game_time):
+    """
+    Reduce several matching games to the one being processed.
+
+    Returns (game, ambiguous). A caller that gets ambiguous=True must not guess:
+    these lookups deliberately ignore opponent_id, so picking arbitrarily is how
+    one game ends up overwriting another on a doubleheader.
+    """
+    if not candidates:
+        return None, False
+    if len(candidates) == 1:
+        return candidates[0], False
+
+    if game_time:
+        timed = [game for game in candidates if game.time == game_time]
+        if len(timed) == 1:
+            return timed[0], False
+
+    return None, True
+
+
+def is_placeholder_game(game):
+    """True if the game's opponent is still a tournament placeholder."""
+    # Imported here for the same reason process_game_data does: src.services
+    # pulls in the database layer, which must not load at module import time.
+    from src.services import TeamService
+
+    team = TeamService.get_team_by_id(game.opponent_id)
+    return bool(team and is_tournament_placeholder_team(team.name))
+
 def _detail_updates(game_data):
     updates = {}
     if game_data.get("_box_score_scrape_succeeded", "box_score" in game_data):
@@ -363,25 +397,42 @@ def process_game_data(game_data):
             if str(final_box_cor_score) != str(cor_final) or str(final_box_opp_score) != str(opp_final):
                 game_data["score_breakdown"] = game_data["score_breakdown"][::-1]
 
-    curr_game = first_or_none(
-        GameService.get_game_by_tournament_key_fields(
-            city,
-            game_data["date"],
-            game_data["gender"],
-            location,
-            game_data["sport"],
-            state
+    # This lookup ignores opponent_id so a row still holding a placeholder can be
+    # claimed by the real opponent. Filter to placeholders before choosing, or a
+    # real game returned first would mask a placeholder behind it and we would
+    # create a duplicate instead of filling the placeholder in.
+    tournament_matches = [
+        game
+        for game in as_game_list(
+            GameService.get_game_by_tournament_key_fields(
+                city,
+                game_data["date"],
+                game_data["gender"],
+                location,
+                game_data["sport"],
+                state,
+            )
         )
-    )
+        if is_placeholder_game(game)
+    ]
 
-    if curr_game:
-        existing_team = TeamService.get_team_by_id(curr_game.opponent_id)
-        if not (existing_team and is_tournament_placeholder_team(existing_team.name)):
-            curr_game = None
+    curr_game, ambiguous = narrow_by_time(tournament_matches, game_time)
+    if ambiguous:
+        logger.warning(
+            "Skipping %s %s on %s at %s: %s placeholder games match and the time "
+            "%r does not single one out",
+            game_data["gender"],
+            game_data["sport"],
+            game_data["date"],
+            city,
+            len(tournament_matches),
+            game_time,
+        )
+        return None
 
-    # If no tournament game found, try the regular lookup with opponent_id
+    # If no placeholder matched, look the game up by its actual opponent.
     if not curr_game:
-        curr_game = first_or_none(
+        key_matches = as_game_list(
             GameService.get_game_by_key_fields(
                 city,
                 game_data["date"],
@@ -389,9 +440,22 @@ def process_game_data(game_data):
                 location,
                 team.id,
                 game_data["sport"],
-                state
+                state,
             )
         )
+        curr_game, ambiguous = narrow_by_time(key_matches, game_time)
+        if ambiguous:
+            logger.warning(
+                "Skipping %s %s vs %s on %s: %s games match and the time %r does "
+                "not single one out",
+                game_data["gender"],
+                game_data["sport"],
+                game_data["opponent_name"],
+                game_data["date"],
+                len(key_matches),
+                game_time,
+            )
+            return None
 
     # _detail_updates only writes box_score/score_breakdown and the recap fields
     # when their scrape actually succeeded, so a failed scrape leaves the stored
