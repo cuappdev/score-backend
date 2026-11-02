@@ -1,5 +1,6 @@
 from flask_jwt_extended import get_jwt_identity
 from graphene import ObjectType, String, Field, List
+from graphql import GraphQLError
 from src.services.user_service import UserService
 from src.services.youtube_video_service import YoutubeVideoService
 from src.types import YoutubeVideoType
@@ -26,5 +27,5 @@ class YoutubeVideoQuery(ObjectType):
     def resolve_my_bookmarked_highlights(self, info):
         user = UserService.require_user(get_jwt_identity())
         if not user:
-            return []
+            raise GraphQLError("User not found.")
         return YoutubeVideoService.get_videos_by_ids(user.bookmarked_highlight_ids)
