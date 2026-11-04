@@ -13,11 +13,28 @@ from src.mutations import (
     RemoveFavoriteTeam,
     AddBookmarkedHighlight,
     RemoveBookmarkedHighlight,
+    CreateReport,
+    DeleteReport,
 )
-from src.queries import GameQuery, TeamQuery, YoutubeVideoQuery, ArticleQuery, UserQuery
+from src.queries import (
+    ArticleQuery,
+    GameQuery,
+    ReportQuery,
+    TeamQuery,
+    UserQuery,
+    YoutubeVideoQuery,
+)
 
 
-class Query(UserQuery, TeamQuery, GameQuery, YoutubeVideoQuery, ArticleQuery, ObjectType):
+class Query(
+    UserQuery,
+    TeamQuery,
+    GameQuery,
+    YoutubeVideoQuery,
+    ArticleQuery,
+    ReportQuery,
+    ObjectType,
+):
     pass
 
 
@@ -52,6 +69,12 @@ class Mutation(ObjectType):
     )
     remove_bookmarked_highlight = RemoveBookmarkedHighlight.Field(
         description="Remove a highlight bookmark for the current user (requires auth).",
+    )
+    create_report = CreateReport.Field(
+        description="Submit a bug or data-quality report.",
+    )
+    delete_report = DeleteReport.Field(
+        description="Delete a submitted report.",
     )
 
 
