@@ -104,6 +104,11 @@ def setup_database_indexes():
         # Account deletion revokes all tokens for the deleted user.
         db["token_blocklist"].create_index([("user_id", 1)], background=True)
 
+        # Reports are read newest-first and can optionally be associated with a
+        # sport. Reports are anonymous by design.
+        db["reports"].create_index([("created_at", -1)], background=True)
+        db["reports"].create_index([("sport", 1)], background=True)
+
         # One application user may be linked to only one Firebase account.
         try:
             db["users"].create_index(

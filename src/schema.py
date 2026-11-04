@@ -9,11 +9,28 @@ from src.mutations import (
     RefreshAccessToken,
     LogoutUser,
     DeleteUser,
+    CreateReport,
+    DeleteReport,
 )
-from src.queries import GameQuery, TeamQuery, YoutubeVideoQuery, ArticleQuery, UserQuery
+from src.queries import (
+    ArticleQuery,
+    GameQuery,
+    ReportQuery,
+    TeamQuery,
+    UserQuery,
+    YoutubeVideoQuery,
+)
 
 
-class Query(UserQuery, TeamQuery, GameQuery, YoutubeVideoQuery, ArticleQuery, ObjectType):
+class Query(
+    UserQuery,
+    TeamQuery,
+    GameQuery,
+    YoutubeVideoQuery,
+    ArticleQuery,
+    ReportQuery,
+    ObjectType,
+):
     pass
 
 
@@ -36,6 +53,12 @@ class Mutation(ObjectType):
     )
     delete_user = DeleteUser.Field(
         description="Permanently delete the current user's application and Firebase accounts (requires auth).",
+    )
+    create_report = CreateReport.Field(
+        description="Submit a bug or data-quality report.",
+    )
+    delete_report = DeleteReport.Field(
+        description="Delete a submitted report.",
     )
 
 

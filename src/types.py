@@ -1,4 +1,4 @@
-from graphene import ID, ObjectType, Field, String, List, Int
+from graphene import ID, DateTime, ObjectType, Field, String, List, Int
 from datetime import datetime
 
 
@@ -12,6 +12,20 @@ class UserType(ObjectType):
     @staticmethod
     def resolve_id(user, info):
         return str(user.id)
+
+
+class ReportType(ObjectType):
+    """A user-submitted bug or data-quality report."""
+
+    id = String(required=True)
+    issue = String(required=True)
+    sport = String()
+    description = String()
+    created_at = DateTime(required=True)
+
+    def __init__(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
 
 class TeamType(ObjectType):
     """
