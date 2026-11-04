@@ -2,13 +2,21 @@ from graphene import ID, ObjectType, Field, String, List, Int
 from datetime import datetime
 
 
+class FavoriteTeamType(ObjectType):
+    """A Cornell team identified by its gender and sport."""
+
+    gender = String(required=True)
+    sport = String(required=True)
+
+
 class UserType(ObjectType):
     """Public application-user fields returned after authentication."""
 
     id = ID(required=True)
     email = String()
     name = String()
-    favorite_game_ids = List(String, required=True)
+    favorite_teams = List(FavoriteTeamType, required=True)
+    bookmarked_highlight_ids = List(String, required=True)
 
     @staticmethod
     def resolve_id(user, info):
