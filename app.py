@@ -61,9 +61,13 @@ jwt = JWTManager(app)
 
 @jwt.token_in_blocklist_loader
 def check_if_token_revoked(jwt_header, jwt_payload: dict) -> bool:
-    """Reject the request if the token's jti is in the blocklist (e.g. after logout)."""
+    """Reject individually revoked tokens and tokens for deleted users."""
     jti = jwt_payload["jti"]
-    return db["token_blocklist"].find_one({"jti": jti}) is not None
+    user_id = jwt_payload.get("sub")
+    query = {"jti": jti}
+    if user_id:
+        query = {"$or": [{"jti": jti}, {"user_id": str(user_id)}]}
+    return db["token_blocklist"].find_one(query) is not None
 
 
 @app.before_request

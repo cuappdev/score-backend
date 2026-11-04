@@ -12,3 +12,4 @@ python-dotenv
 pytz
 gunicorn
 firebase-admin==7.3.0
+gspread
