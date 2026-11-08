@@ -60,6 +60,9 @@ def normalize_placeholder(value, fallback="TBA"):
 
 logger = logging.getLogger(__name__)
 
+# How game dates are stored, e.g. "Sep 12 (Sat) 2026".
+DB_DATE_FORMAT = "%b %d (%a) %Y"
+
 
 def get_with_retries(
     url,
@@ -291,45 +294,30 @@ def extract_sport_type_from_title(title: str):
 
 def sidearm_dates_match(db_date: str, sidearm_date: str) -> bool:
         """
-        Check if two date strings represent the same date.
-        
+        Check if two date strings represent the same calendar day.
+
         Args:
-            db_date: Date from our database
-            sidearm_date: Date from Sidearm API
-            
+            db_date: Date from our database, e.g. "Sep 12 (Sat) 2026"
+            sidearm_date: Date from the Sidearm feed, e.g. "9/12/2026"
+
         Returns:
-            True if dates match, False otherwise
+            True if both name the same day, False otherwise
         """
         try:
-            # Parse Sidearm date (format: "9/29/2025")
-            sidearm_dt = datetime.strptime(sidearm_date, "%m/%d/%Y")
-            
-            numToMonth = {
-                "1": "Jan",
-                "2": "Feb",
-                "3": "Mar",
-                "4": "Apr",
-                "5": "May",
-                "6": "Jun",
-                "7": "Jul",
-                "8": "Aug",
-                "10": "Oct",
-                "11": "Nov",
-                "12": "Dec"
-            }
-            
-            year = str(sidearm_dt.year)
-            month = numToMonth[str(sidearm_dt.month)]
-            date = str(sidearm_dt.day)
-            
-            # This is simple check - might need to improve this
-            if month in db_date and date in db_date and year in db_date:
-                return True
-            
+            sidearm_day = datetime.strptime(sidearm_date.strip(), "%m/%d/%Y").date()
+        except (ValueError, TypeError, AttributeError):
+            logger.warning("Unrecognized sidearm date %r", sidearm_date)
             return False
-        except Exception as e:
-            logger.error(f"Error comparing dates: {str(e)}")
+
+        try:
+            # Our stored format carries a weekday in parentheses: "Sep 12 (Sat) 2026".
+            db_day = datetime.strptime(db_date.strip(), DB_DATE_FORMAT).date()
+        except (ValueError, TypeError, AttributeError):
+            logger.warning("Unrecognized stored game date %r", db_date)
             return False
+
+        return db_day == sidearm_day
+
 
 def is_game_active(game_data: Dict) -> bool:
         """
