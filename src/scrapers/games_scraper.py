@@ -21,7 +21,7 @@ import base64
 import logging
 import re
 import threading
-from datetime import date, timedelta, datetime, timezone
+from datetime import timedelta, datetime, timezone
 import pytz
 
 # The calendar feed reports event dates and times in Cornell's local timezone.
@@ -578,7 +578,9 @@ def fetch_live_games():
 def parse_live_page(url):
     from src.services import GameService
 
-    today = date.today()
+    # Eastern, like the rest of the live path: near midnight UTC the server's
+    # own date can be a day ahead, which would request the wrong feed week.
+    today = eastern_today()
     days_since_saturday = (today.weekday() - 5) % 7
 
     # go back to most recent saturday
