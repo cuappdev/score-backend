@@ -22,6 +22,19 @@ class YoutubeVideoRepository:
         return YoutubeVideo.from_dict(video_data) if video_data else None
 
     @staticmethod
+    def find_by_ids(video_ids):
+        """Retrieve videos by ID while preserving the requested order."""
+        if not video_ids:
+            return []
+
+        collection = db["youtubevideo"]
+        videos = {
+            video["_id"]: YoutubeVideo.from_dict(video)
+            for video in collection.find({"_id": {"$in": list(video_ids)}})
+        }
+        return [videos[video_id] for video_id in video_ids if video_id in videos]
+
+    @staticmethod
     def insert(video):
         """
         Inserts a new YouTube video into the MongoDB collection.

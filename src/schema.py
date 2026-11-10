@@ -9,6 +9,10 @@ from src.mutations import (
     RefreshAccessToken,
     LogoutUser,
     DeleteUser,
+    AddFavoriteTeam,
+    RemoveFavoriteTeam,
+    AddBookmarkedHighlight,
+    RemoveBookmarkedHighlight,
 )
 from src.queries import GameQuery, TeamQuery, YoutubeVideoQuery, ArticleQuery, UserQuery
 
@@ -36,6 +40,17 @@ class Mutation(ObjectType):
     )
     delete_user = DeleteUser.Field(
         description="Permanently delete the current user's application and Firebase accounts (requires auth).",
+    add_favorite_team = AddFavoriteTeam.Field(
+        description="Add a team, identified by gender and sport, to the current user's favorites (requires auth).",
+    )
+    remove_favorite_team = RemoveFavoriteTeam.Field(
+        description="Remove a team, identified by gender and sport, from the current user's favorites (requires auth).",
+    )
+    add_bookmarked_highlight = AddBookmarkedHighlight.Field(
+        description="Bookmark a highlight for the current user (requires auth).",
+    )
+    remove_bookmarked_highlight = RemoveBookmarkedHighlight.Field(
+        description="Remove a highlight bookmark for the current user (requires auth).",
     )
 
 
