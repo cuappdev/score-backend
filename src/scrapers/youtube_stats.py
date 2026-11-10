@@ -1,5 +1,10 @@
 import requests
 from src.utils.constants import CHANNEL_ID, VIDEO_LIMIT
+
+# (connect timeout, read timeout) in seconds. Requests has no default timeout,
+# so without this a slow YouTube/thumbnail peer can block the worker forever
+# and wedge the scheduler.
+REQUEST_TIMEOUT = (5, 15)
 from dotenv import load_dotenv
 from src.models.youtube_video import YoutubeVideo
 from src.services.youtube_video_service import YoutubeVideoService
@@ -17,7 +22,8 @@ def fetch_videos():
     Fetches the latest videos from the YouTube API and stores them in the database.
     """
     url = f"https://www.googleapis.com/youtube/v3/search?key={YOUTUBE_API_KEY}&channelId={CHANNEL_ID}&part=snippet,id&order=date&maxResults={VIDEO_LIMIT}"
-    response = requests.get(url)
+    response = requests.get(url, timeout=REQUEST_TIMEOUT)
+    response.raise_for_status()
     data = response.json()
 
     for item in data.get("items", []):
@@ -32,7 +38,7 @@ def get_video_duration(video_id):
     """
     try:
         url = f"https://www.googleapis.com/youtube/v3/videos?key={YOUTUBE_API_KEY}&id={video_id}&part=contentDetails"
-        response = requests.get(url)
+        response = requests.get(url, timeout=REQUEST_TIMEOUT)
         response.raise_for_status()
         data = response.json()
         
@@ -95,7 +101,7 @@ def process_video_item(item):
     encoded_thumbnail = None
     if thumbnail:
         try:
-            response = requests.get(thumbnail)
+            response = requests.get(thumbnail, timeout=REQUEST_TIMEOUT)
             response.raise_for_status()
             encoded_thumbnail = base64.b64encode(response.content).decode("utf-8")
         except Exception as e:
