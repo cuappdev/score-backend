@@ -24,3 +24,51 @@ class UserRepository:
         """Delete an application user by MongoDB ID."""
         result = db["users"].delete_one({"_id": ObjectId(user_id)})
         return result.deleted_count > 0
+    def add_favorite_team(user_id, gender, sport):
+        document = db["users"].find_one_and_update(
+            {"_id": ObjectId(user_id)},
+            {
+                "$addToSet": {
+                    "favorite_teams": {
+                        "gender": str(gender).strip(),
+                        "sport": str(sport).strip(),
+                    }
+                }
+            },
+            return_document=ReturnDocument.AFTER,
+        )
+        return User.from_dict(document)
+
+    @staticmethod
+    def remove_favorite_team(user_id, gender, sport):
+        document = db["users"].find_one_and_update(
+            {"_id": ObjectId(user_id)},
+            {
+                "$pull": {
+                    "favorite_teams": {
+                        "gender": str(gender).strip(),
+                        "sport": str(sport).strip(),
+                    }
+                }
+            },
+            return_document=ReturnDocument.AFTER,
+        )
+        return User.from_dict(document)
+
+    @staticmethod
+    def add_bookmarked_highlight(user_id, highlight_id):
+        document = db["users"].find_one_and_update(
+            {"_id": ObjectId(user_id)},
+            {"$addToSet": {"bookmarked_highlight_ids": str(highlight_id).strip()}},
+            return_document=ReturnDocument.AFTER,
+        )
+        return User.from_dict(document)
+
+    @staticmethod
+    def remove_bookmarked_highlight(user_id, highlight_id):
+        document = db["users"].find_one_and_update(
+            {"_id": ObjectId(user_id)},
+            {"$pull": {"bookmarked_highlight_ids": str(highlight_id).strip()}},
+            return_document=ReturnDocument.AFTER,
+        )
+        return User.from_dict(document)

@@ -19,6 +19,10 @@ from src.queries import (
     TeamQuery,
     UserQuery,
     YoutubeVideoQuery,
+    AddFavoriteTeam,
+    RemoveFavoriteTeam,
+    AddBookmarkedHighlight,
+    RemoveBookmarkedHighlight,
 )
 
 
@@ -59,6 +63,17 @@ class Mutation(ObjectType):
     )
     delete_report = DeleteReport.Field(
         description="Delete a submitted report.",
+    add_favorite_team = AddFavoriteTeam.Field(
+        description="Add a team, identified by gender and sport, to the current user's favorites (requires auth).",
+    )
+    remove_favorite_team = RemoveFavoriteTeam.Field(
+        description="Remove a team, identified by gender and sport, from the current user's favorites (requires auth).",
+    )
+    add_bookmarked_highlight = AddBookmarkedHighlight.Field(
+        description="Bookmark a highlight for the current user (requires auth).",
+    )
+    remove_bookmarked_highlight = RemoveBookmarkedHighlight.Field(
+        description="Remove a highlight bookmark for the current user (requires auth).",
     )
 
 

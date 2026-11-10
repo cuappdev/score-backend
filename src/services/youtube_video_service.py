@@ -18,6 +18,10 @@ class YoutubeVideoService:
         return YoutubeVideoRepository.find_by_id(video_id)
 
     @staticmethod
+    def get_videos_by_ids(video_ids):
+        return YoutubeVideoRepository.find_by_ids(video_ids)
+
+    @staticmethod
     def create_video(data):
         """
         Create a new YouTube video instance.
