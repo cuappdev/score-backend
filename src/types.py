@@ -191,7 +191,9 @@ class YoutubeVideoType(ObjectType):
         - url: The URL to the video.
         - published_at: The date and time the video was published.
         - duration: The duration of the video (optional).
-        - sportsType: The sport type extracted from the video title.
+        - sport: The sport the video covers (optional).
+        - gender: The team the video covers, "Mens" or "Womens" (optional).
+        - sportsType: Deprecated alias for sport.
     """
     id = String(required=False)
     title = String(required=True)
@@ -201,18 +203,36 @@ class YoutubeVideoType(ObjectType):
     url = String(required=True)
     published_at = String(required=True)
     duration = String(required=False)
+    sport = String(required=False)
+    gender = String(required=False)
     sportsType = String(required=False)
 
     def __init__(self, **kwargs):
         for key, value in kwargs.items():
             setattr(self, key, value)
 
-    def resolve_sportsType(video, info):
+    def resolve_sport(video, info):
         """
-        Resolver to extract sport type from the video title.
+        The stored sport, falling back to the title for videos saved before the
+        field existed.
         """
         from src.utils.helpers import extract_sport_from_title
-        return extract_sport_from_title(video.title)
+        return getattr(video, "sport", None) or extract_sport_from_title(video.title)
+
+    def resolve_gender(video, info):
+        """
+        The stored gender, falling back to the title for videos saved before the
+        field existed.
+        """
+        from src.utils.helpers import extract_gender_from_title
+        sport = YoutubeVideoType.resolve_sport(video, info)
+        return getattr(video, "gender", None) or extract_gender_from_title(video.title, sport)
+
+    def resolve_sportsType(video, info):
+        """
+        Deprecated: kept so existing clients keep working. Use `sport`.
+        """
+        return YoutubeVideoType.resolve_sport(video, info)
 
 class ArticleType(ObjectType):
     """
@@ -222,6 +242,7 @@ class ArticleType(ObjectType):
         - title: The title of the article
         - image: The filename of the article's main image
         - sports_type: The specific sport category
+        - gender: The team the article covers, "Mens" or "Womens" (optional)
         - published_at: The publication date
         - url: The URL to the full article
     """
@@ -229,8 +250,19 @@ class ArticleType(ObjectType):
     title = String(required=True)
     image = String()
     sports_type = String(required=True)
+    gender = String(required=False)
     published_at = String(required=True)
     url = String(required=True)
+
+    def resolve_gender(article, info):
+        """
+        The stored gender, falling back to the title for articles saved before
+        the field existed.
+        """
+        from src.utils.helpers import extract_gender_from_title
+        return getattr(article, "gender", None) or extract_gender_from_title(
+            article.title, getattr(article, "sports_type", None)
+        )
 
     def __init__(self, **kwargs):
         for key, value in kwargs.items():

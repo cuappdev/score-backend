@@ -7,15 +7,16 @@ from src.types import YoutubeVideoType
 from src.utils.graphql_errors import graphql_jwt_required
 
 class YoutubeVideoQuery(ObjectType):
-    youtube_videos = List(YoutubeVideoType)
+    youtube_videos = List(YoutubeVideoType, sport=String(), gender=String())
     youtube_video = Field(YoutubeVideoType, id=String(required=True))
     my_bookmarked_highlights = List(YoutubeVideoType)
 
-    def resolve_youtube_videos(self, info):
+    def resolve_youtube_videos(self, info, sport=None, gender=None):
         """
-        Resolver for retrieving all YouTube videos.
+        Resolver for retrieving YouTube videos, optionally filtered by sport
+        and gender.
         """
-        return YoutubeVideoService.get_all_videos()
+        return YoutubeVideoService.get_videos(sport, gender)
 
     def resolve_youtube_video(self, info, id):
         """
