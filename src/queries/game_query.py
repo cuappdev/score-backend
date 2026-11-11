@@ -1,4 +1,3 @@
-from flask_jwt_extended import get_jwt_identity
 from graphene import Boolean, ObjectType, String, Field, List, Int, DateTime
 from src.services.game_service import GameService
 from src.services.user_service import UserService
