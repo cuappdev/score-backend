@@ -79,6 +79,13 @@ class GameService:
         )
 
     @staticmethod
+    def get_game_by_event_id(event_id):
+        """
+        Retrieve a game by Sidearm's calendar event id.
+        """
+        return GameRepository.find_by_event_id(event_id)
+
+    @staticmethod
     def get_game_by_key_fields(city, date, gender, location, opponent_id, sport, state):
         """
         Retrieve a game by its essential fields, ignoring time

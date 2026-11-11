@@ -316,6 +316,7 @@ def calendar_event_to_game_data(event):
     city, state = split_event_location(event.get("location"))
 
     return {
+        "event_id": event.get("id"),
         "sport": sport_info["sport"],
         "gender": sport_info["gender"],
         "opponent_name": normalize_placeholder(opponent.get("title")),
@@ -342,18 +343,35 @@ def parse_calendar_data(date):
         sport (str): The sport of the games.
         gender (str): The gender of the games.
     """
-    url = f"{CALENDAR_URL}&date={date}"
+    url = f"{CALENDAR_URL}&date={date}T00:00:00"
     try:
-        response = requests.get(url, timeout=30)
+        response = requests.get(url, headers=HTTP_REQUEST_HEADERS, timeout=30)
         response.raise_for_status()
     except Exception as exc:
         logger.warning("Unable to fetch schedule %s: %s", url, exc)
         return
 
-    events_data = response.json()
-    for day in events_data:
-        for game in day["events"]:
-            process_game_data(game)
+    try:
+        events_data = response.json()
+    except ValueError as exc:
+        logger.warning("Calendar feed at %s was not JSON: %s", url, exc)
+        return
+
+    for day in events_data or []:
+        for event in day.get("events") or []:
+            game_data = calendar_event_to_game_data(event)
+            if not game_data:
+                continue
+            game_data = attach_game_details(game_data)
+            try:
+                process_game_data(game_data)
+            except Exception as exc:
+                logger.error(
+                    "Failed to process calendar event %s: %s",
+                    event.get("id"),
+                    exc,
+                    exc_info=True,
+                )
 
 
 def as_game_list(result):
@@ -412,6 +430,83 @@ def _detail_updates(game_data):
     return updates
 
 
+def build_game_updates(game_data, team, city, state, location, game_time, utc_date_str):
+    """
+    The fields we write on every match, however the game was found.
+
+    _detail_updates only contributes box_score/score_breakdown and the recap
+    fields when their scrape actually succeeded, so a failed scrape leaves the
+    stored values alone instead of overwriting them with None.
+    """
+    return {
+        "time": game_time,
+        "result": game_data["result"],
+        "utc_date": utc_date_str,
+        "city": city,
+        "location": location,
+        "state": state,
+        "opponent_id": team.id,
+        "ticket_link": game_data["ticket_link"],
+        # Stamp the id on rows that predate it, so the next run takes the fast path.
+        "event_id": game_data.get("event_id"),
+        **_detail_updates(game_data),
+    }
+
+
+def attach_game_details(game_data):
+    """
+    Fetch the box score and recap for a game that has been played.
+
+    The calendar feed carries links but no play data, so these are separate
+    requests. An unplayed game has no links, so nothing is fetched and
+    _detail_updates leaves whatever is stored untouched.
+
+    The *_scrape_succeeded flags tell _detail_updates whether a missing value
+    means "this game has no box score" or "we could not reach the page", so a
+    failed fetch never blanks a stored box score.
+    """
+    box_score_link = safe_absolute_url(game_data.get("box_score_link"))
+    game_data["_box_score_scrape_succeeded"] = False
+
+    if box_score_link:
+        try:
+            details = scrape_game(box_score_link, game_data["sport"].lower())
+        except Exception as exc:
+            logger.warning("Unable to scrape box score %s: %s", box_score_link, exc)
+            details = None
+
+        if not isinstance(details, dict) or details.get("error"):
+            if isinstance(details, dict) and details.get("error"):
+                logger.warning(
+                    "Box score scrape failed for %s: %s", box_score_link, details["error"]
+                )
+        else:
+            game_data["_box_score_scrape_succeeded"] = True
+            game_data["box_score"] = details.get("scoring_summary")
+            game_data["score_breakdown"] = details.get("scores")
+
+            # These sports list the home team first, so swap to keep Cornell
+            # in the first column for home games.
+            if game_data["sport"] in ("Baseball", "Football", "Lacrosse"):
+                if "Ithaca" in (game_data.get("city") or "") and game_data.get("box_score"):
+                    for event in game_data["box_score"]:
+                        if "cor_score" in event and "opp_score" in event:
+                            event["cor_score"], event["opp_score"] = (
+                                event["opp_score"],
+                                event["cor_score"],
+                            )
+
+    recap_link = safe_absolute_url(game_data.get("recap_link"))
+    game_data["_recap_scrape_succeeded"] = False
+    if recap_link:
+        game_data["recap_link"] = recap_link
+        recap = _recap(recap_link)
+        game_data["_recap_scrape_succeeded"] = recap.pop("success", False)
+        game_data.update(recap)
+
+    return game_data
+
+
 def process_game_data(game_data):
     """
     Process the game data and store it in the database.
@@ -421,20 +516,19 @@ def process_game_data(game_data):
     """
     from src.services import GameService, TeamService
 
-    if "location" in game_data:
-        location = game_data.get("location")
-        city, state = location.split(",")
-    else:
-        city, state, location = "NA", "NA", "NO LOCATION PROVIDED"
+    # calendar_event_to_game_data has already split city, state and venue and
+    # canonicalized the state, so take them as given.
+    city = game_data.get("city")
+    state = game_data.get("state")
+    location = game_data.get("location")
 
-    game_data.update(city=city, state=state, location=location)
     game_data = normalize_game_data(game_data)
 
-    if game_data.get("opponent") and not is_allowed_url(game_data.get("opponent").get("website")+game_data.get("opponent").get("image").get("filename")):
+    if game_data.get("opponent_logo") and not is_allowed_url(game_data["opponent_logo"]):
         logger.warning("Skipping unapproved opponent logo URL: %s", game_data["opponent_logo"])
         game_data["opponent_logo"] = None
 
-    team = TeamService.get_team_by_name(game_data.get("opponent").get("title"))
+    team = TeamService.get_team_by_name(game_data.get("opponent_name"))
     if not team:
         logo_url = game_data.get("opponent").get("website")+game_data.get("opponent").get("image").get("filename")
         color = (
@@ -467,28 +561,40 @@ def process_game_data(game_data):
     
     # make sure cornell is first in score breakdown - switch order on home games
     # do this before branching
-    if game_data["score_breakdown"] and is_home_game:
-        game_data["score_breakdown"] = game_data["score_breakdown"][::-1]
+    if game_data.get("score_breakdown") and is_home_game:
+        game_data["score_breakdown"] = game_data.get("score_breakdown")[::-1]
 
     # consistency check for ice hockey, since can be randomly ordered
-    if game_data["sport"] == "Ice Hockey" and game_data["score_breakdown"] and game_data["box_score"]:
+    if game_data["sport"] == "Ice Hockey" and game_data.get("score_breakdown") and game_data.get("box_score"):
         # Get final scores from box score
         final_box_cor_score = None
         final_box_opp_score = None
-        for event in reversed(game_data["box_score"]):
+        for event in reversed(game_data.get("box_score")):
             if "cor_score" in event and "opp_score" in event:
                 final_box_cor_score = event["cor_score"]
                 final_box_opp_score = event["opp_score"]
                 break
         
         # Compare with score breakdown
-        if final_box_cor_score is not None and len(game_data["score_breakdown"]) >= 2:
-            cor_final = game_data["score_breakdown"][0][-1]
-            opp_final = game_data["score_breakdown"][1][-1]
+        if final_box_cor_score is not None and len(game_data.get("score_breakdown")) >= 2:
+            cor_final = game_data.get("score_breakdown")[0][-1]
+            opp_final = game_data.get("score_breakdown")[1][-1]
             
             # If they don't match, flip the arrays
             if str(final_box_cor_score) != str(cor_final) or str(final_box_opp_score) != str(opp_final):
-                game_data["score_breakdown"] = game_data["score_breakdown"][::-1]
+                game_data["score_breakdown"] = game_data.get("score_breakdown")[::-1]
+
+    event_id = game_data.get("event_id")
+    curr_game = GameService.get_game_by_event_id(event_id) if event_id else None
+
+    if curr_game:
+        updates = build_game_updates(game_data, team, city, state, location, game_time, utc_date_str)
+        current_team = TeamService.get_team_by_id(curr_game.opponent_id)
+        if current_team and is_tournament_placeholder_team(current_team.name):
+            if is_cornell_loss(game_data["result"]) and utc_date_obj:
+                GameService.handle_tournament_loss(game_data["sport"], game_data["gender"], utc_date_obj)
+        GameService.update_game(curr_game.id, updates)
+        return curr_game.id
 
     # This lookup ignores opponent_id so a row still holding a placeholder can be
     # claimed by the real opponent. Filter to placeholders before choosing, or a
@@ -550,20 +656,7 @@ def process_game_data(game_data):
             )
             return None
 
-    # _detail_updates only writes box_score/score_breakdown and the recap fields
-    # when their scrape actually succeeded, so a failed scrape leaves the stored
-    # values alone instead of filling it with None
-    updates = {
-        "time": game_time,
-        "result": game_data["result"],
-        "utc_date": utc_date_str,
-        "city": city,
-        "location": location,
-        "state": state,
-        "opponent_id": team.id,
-        "ticket_link": game_data["ticket_link"],
-        **_detail_updates(game_data),
-    }
+    updates = build_game_updates(game_data, team, city, state, location, game_time, utc_date_str)
 
     if curr_game:
         current_team = TeamService.get_team_by_id(curr_game.opponent_id)
