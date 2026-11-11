@@ -2,13 +2,21 @@ from graphene import ID, ObjectType, Field, String, List, Int
 from datetime import datetime
 
 
+class FavoriteTeamType(ObjectType):
+    """A Cornell team identified by its gender and sport."""
+
+    gender = String(required=True)
+    sport = String(required=True)
+
+
 class UserType(ObjectType):
     """Public application-user fields returned after authentication."""
 
     id = ID(required=True)
     email = String()
     name = String()
-    favorite_game_ids = List(String, required=True)
+    favorite_teams = List(FavoriteTeamType, required=True)
+    bookmarked_highlight_ids = List(String, required=True)
 
     @staticmethod
     def resolve_id(user, info):
@@ -54,6 +62,7 @@ class BoxScoreEntryType(ObjectType):
     Represents an individual entry in the box score of a game.
 
     Attributes:
+        - `play_id`: Sidearm's stable id for the play, when it came from a live feed.
         - `team`: The team involved in the scoring event.
         - `period`: The period or inning of the event.
         - `time`: The time of the scoring event.
@@ -65,6 +74,7 @@ class BoxScoreEntryType(ObjectType):
         - `opp_score`: Opponent's score at the time of the event.
     """
     
+    play_id = String(required=False)
     team = String(required=False)
     period = String(required=False)
     time = String(required=False)
