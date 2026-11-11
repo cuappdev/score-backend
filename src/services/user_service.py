@@ -24,8 +24,6 @@ class UserService:
     @staticmethod
     def require_user(user_id):
         return UserRepository.find_by_id(user_id)
-    def require_user(user_id):
-        return UserRepository.find_by_id(user_id)
 
     @staticmethod
     def add_favorite_team(user_id, gender, sport):
