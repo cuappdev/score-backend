@@ -11,4 +11,7 @@ Flask-APScheduler
 python-dotenv
 pytz
 gunicorn
+flask-socketio
 firebase-admin==7.3.0
+pytest
+simple-websocket

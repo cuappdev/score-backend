@@ -18,6 +18,8 @@ class Game:
         - `box_score`       The scoring summary of the game (optional)
         - `score_breakdown` The scoring breakdown of the game (optional)
         - 'ticket_link'    The ticket link for the game (optional)
+        - `is_live`         Whether the game is currently being updated live (optional)
+        - `last_updated`    ISO timestamp of the last live update (optional)
         - `recap_link`     The recap article link (optional)
         - `recap_article_title` The recap article title (optional)
         - `recap_article_image` The recap article image (optional)
@@ -41,6 +43,8 @@ class Game:
         team=None,
         utc_date=None,
         ticket_link=None,
+        is_live=None,
+        last_updated=None,
         recap_link=None,
         recap_article_title=None,
         recap_article_image=None,
@@ -61,6 +65,8 @@ class Game:
         self.team = team
         self.utc_date = utc_date
         self.ticket_link = ticket_link
+        self.is_live = is_live
+        self.last_updated = last_updated
         self.recap_link = recap_link
         self.recap_article_title = recap_article_title
         self.recap_article_image = recap_article_image
@@ -86,6 +92,8 @@ class Game:
             "team": self.team,
             "utc_date": self.utc_date,
             "ticket_link": self.ticket_link,
+            "is_live": self.is_live,
+            "last_updated": self.last_updated,
             "recap_link": self.recap_link,
             "recap_article_title": self.recap_article_title,
             "recap_article_image": self.recap_article_image,
@@ -113,6 +121,8 @@ class Game:
             team=data.get("team"),
             utc_date=data.get("utc_date"),
             ticket_link=data.get("ticket_link"),
+            is_live=data.get("is_live"),
+            last_updated=data.get("last_updated"),
             recap_link=data.get("recap_link"),
             recap_article_title=data.get("recap_article_title"),
             recap_article_image=data.get("recap_article_image"),

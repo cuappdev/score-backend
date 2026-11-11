@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Score Backend - Live Game WebSocket Test</title>
+<!--
+  Dev harness for the live game WebSocket API. Open this file directly in a
+  browser (file:// works, the server sets CORS to *) while app.py is running.
+
+  socket.io.min.js is vendored next to this file so the harness works offline and
+  from any origin. Its major version must match the server's Socket.IO protocol:
+  Flask-SocketIO 5.x / python-socketio 5.x speak protocol v5, which needs client 4.x.
+  To refresh it: curl -o dev/socket.io.min.js https://cdn.socket.io/4.8.1/socket.io.min.js
+-->
+<script src="socket.io.min.js"></script>
+<style>
+  :root {
+    --bg: #f6f6f4; --panel: #fff; --ink: #18181b; --muted: #6b7280;
+    --line: #e4e4e7; --accent: #b31b1b; --ok: #15803d; --err: #b91c1c;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 20px; background: var(--bg); color: var(--ink);
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  h1 { font-size: 17px; margin: 0 0 2px; }
+  .sub { color: var(--muted); font-size: 12px; margin-bottom: 16px; }
+  .panel {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    padding: 14px; margin-bottom: 12px;
+  }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .row + .row { margin-top: 10px; }
+  label { font-size: 12px; color: var(--muted); min-width: 64px; }
+  input {
+    font: 13px var(--mono); padding: 7px 9px; border: 1px solid var(--line);
+    border-radius: 5px; background: #fff; color: var(--ink); flex: 1; min-width: 180px;
+  }
+  button {
+    font: 500 13px inherit; padding: 7px 13px; border: 1px solid var(--line);
+    border-radius: 5px; background: #fff; color: var(--ink); cursor: pointer;
+  }
+  button:hover:not(:disabled) { background: #f4f4f5; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.primary:hover:not(:disabled) { background: #991717; }
+  .status { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; font-size: 12px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #a1a1aa; display: inline-block; }
+  .dot.on { background: var(--ok); }
+  .dot.off { background: var(--err); }
+  .pill {
+    font: 11px var(--mono); background: #f4f4f5; border: 1px solid var(--line);
+    padding: 2px 7px; border-radius: 4px; color: var(--muted);
+  }
+  .log-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .log-head h2 { font-size: 13px; margin: 0; }
+  #log { max-height: 60vh; overflow-y: auto; }
+  .ev { border-top: 1px solid var(--line); padding: 9px 0; }
+  .ev:first-child { border-top: 0; }
+  .ev-head { display: flex; gap: 8px; align-items: baseline; }
+  .ev-name { font: 600 12px var(--mono); }
+  .ev-time { font: 11px var(--mono); color: var(--muted); margin-left: auto; }
+  .ev-dir { font: 10px var(--mono); color: var(--muted); text-transform: uppercase; }
+  .ev-name.game_update { color: var(--accent); }
+  .ev-name.error { color: var(--err); }
+  .ev-name.connected, .ev-name.subscription_success { color: var(--ok); }
+  pre {
+    font: 12px/1.45 var(--mono); background: #fafafa; border: 1px solid var(--line);
+    border-radius: 5px; padding: 9px; margin: 7px 0 0; overflow-x: auto;
+    white-space: pre; max-height: 320px; overflow-y: auto;
+  }
+  .empty { color: var(--muted); font-size: 12px; padding: 6px 0; }
+  .games { margin-top: 10px; }
+  .game {
+    display: flex; gap: 10px; align-items: center; padding: 6px 0;
+    border-top: 1px solid var(--line); font-size: 12px;
+  }
+  .game code { font: 11px var(--mono); color: var(--muted); }
+  .game .use { margin-left: auto; }
+</style>
+</head>
+<body>
+
+<h1>Live Game WebSocket Test</h1>
+<div class="sub">Subscribes to a game room and dumps every payload the server emits.</div>
+
+<div class="panel">
+  <div class="row">
+    <label for="url">Server</label>
+    <input id="url" value="http://localhost:8000">
+    <button id="connect" class="primary">Connect</button>
+    <button id="disconnect" disabled>Disconnect</button>
+  </div>
+  <div class="row status">
+    <span><span id="dot" class="dot"></span> <span id="state">disconnected</span></span>
+    <span>sid <span id="sid" class="pill">--</span></span>
+    <span>transport <span id="transport" class="pill">--</span></span>
+    <span>subscribed <span id="subs" class="pill">none</span></span>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="row">
+    <label for="gameId">Game ID</label>
+    <input id="gameId" placeholder="mongo _id, e.g. 6aa5b920a15721b73778bfcb">
+    <button id="subscribe" disabled class="primary">Subscribe</button>
+    <button id="unsubscribe" disabled>Unsubscribe</button>
+  </div>
+  <div class="row">
+    <label></label>
+    <button id="gameInfo" disabled>get_game_info</button>
+    <button id="getSubs" disabled>get_subscriptions</button>
+    <button id="ping" disabled>ping</button>
+    <button id="findGames">Find live games</button>
+  </div>
+  <div id="games" class="games"></div>
+</div>
+
+<div class="panel">
+  <div class="log-head">
+    <h2>Events <span id="count" class="pill">0</span></h2>
+    <div class="row">
+      <label style="min-width:auto"><input type="checkbox" id="autoscroll" checked style="flex:none;min-width:auto"> autoscroll</label>
+      <button id="clear">Clear</button>
+    </div>
+  </div>
+  <div id="log"><div class="empty">Nothing yet. Connect, then subscribe to a game id.</div></div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let socket = null;
+let eventCount = 0;
+const subscribed = new Set();
+
+// Every server -> client event in websocket_events.py / websocket_manager.py.
+// onAny() catches these plus anything added later, so this list is only for
+// the handlers that also update the status bar.
+const KNOWN_EVENTS = [
+  'connected', 'subscription_success', 'unsubscription_success',
+  'subscriptions', 'game_info', 'game_update', 'pong', 'error',
+];
+
+function log(name, payload, direction = 'recv') {
+  if (eventCount === 0) $('log').innerHTML = '';
+  eventCount++;
+  $('count').textContent = eventCount;
+
+  const el = document.createElement('div');
+  el.className = 'ev';
+  const head = document.createElement('div');
+  head.className = 'ev-head';
+
+  const n = document.createElement('span');
+  n.className = 'ev-name ' + name;
+  n.textContent = name;
+
+  const d = document.createElement('span');
+  d.className = 'ev-dir';
+  d.textContent = direction === 'send' ? '→ sent' : '← recv';
+
+  const t = document.createElement('span');
+  t.className = 'ev-time';
+  t.textContent = new Date().toLocaleTimeString([], { hour12: false }) +
+                  '.' + String(new Date().getMilliseconds()).padStart(3, '0');
+
+  head.append(n, d, t);
+  el.appendChild(head);
+
+  if (payload !== undefined) {
+    const pre = document.createElement('pre');
+    // Raw payload, exactly as it came off the wire.
+    pre.textContent = typeof payload === 'string' ? payload : JSON.stringify(payload, null, 2);
+    el.appendChild(pre);
+  }
+
+  $('log').prepend(el);
+  if ($('autoscroll').checked) $('log').scrollTop = 0;
+}
+
+function setState(connected) {
+  $('dot').className = 'dot ' + (connected ? 'on' : 'off');
+  $('state').textContent = connected ? 'connected' : 'disconnected';
+  $('connect').disabled = connected;
+  $('disconnect').disabled = !connected;
+  for (const id of ['subscribe', 'unsubscribe', 'gameInfo', 'getSubs', 'ping']) {
+    $(id).disabled = !connected;
+  }
+  if (!connected) {
+    $('sid').textContent = '--';
+    $('transport').textContent = '--';
+    subscribed.clear();
+    renderSubs();
+  }
+}
+
+function renderSubs() {
+  $('subs').textContent = subscribed.size ? [...subscribed].join(', ') : 'none';
+}
+
+function emit(event, data) {
+  if (!socket || !socket.connected) return;
+  socket.emit(event, data);
+  log(event, data, 'send');
+}
+
+$('connect').onclick = () => {
+  const url = $('url').value.trim();
+  if (socket) { socket.close(); socket = null; }
+
+  // Server mounts socket.io at the default path and allows any origin.
+  socket = io(url, { transports: ['websocket', 'polling'], reconnection: true });
+
+  socket.on('connect', () => {
+    setState(true);
+    $('sid').textContent = socket.id;
+    $('transport').textContent = socket.io.engine.transport.name;
+    socket.io.engine.on('upgrade', () =>
+      $('transport').textContent = socket.io.engine.transport.name);
+    log('connect', { sid: socket.id, url });
+  });
+
+  socket.on('disconnect', reason => { setState(false); log('disconnect', { reason }); });
+  socket.on('connect_error', err => log('connect_error', { message: err.message }));
+
+  // Catch every server event, including any not in KNOWN_EVENTS.
+  socket.onAny((name, ...args) => {
+    log(name, args.length <= 1 ? args[0] : args);
+    if (name === 'subscription_success' && args[0]?.gameId) {
+      subscribed.add(args[0].gameId); renderSubs();
+    }
+    if (name === 'unsubscription_success' && args[0]?.gameId) {
+      subscribed.delete(args[0].gameId); renderSubs();
+    }
+    if (name === 'subscriptions' && Array.isArray(args[0]?.subscriptions)) {
+      subscribed.clear();
+      args[0].subscriptions.forEach(g => subscribed.add(g));
+      renderSubs();
+    }
+  });
+};
+
+$('disconnect').onclick = () => { if (socket) socket.close(); };
+$('subscribe').onclick = () => {
+  const gameId = $('gameId').value.trim();
+  if (gameId) emit('subscribe_game', { gameId });
+};
+$('unsubscribe').onclick = () => {
+  const gameId = $('gameId').value.trim();
+  if (gameId) emit('unsubscribe_game', { gameId });
+};
+$('gameInfo').onclick = () => {
+  const gameId = $('gameId').value.trim();
+  if (gameId) emit('get_game_info', { gameId });
+};
+$('getSubs').onclick = () => emit('get_subscriptions');
+$('ping').onclick = () => emit('ping');
+$('clear').onclick = () => {
+  eventCount = 0;
+  $('count').textContent = '0';
+  $('log').innerHTML = '<div class="empty">Cleared.</div>';
+};
+
+// Convenience: pull today's game ids off the GraphQL endpoint so you don't have
+// to go dig one out of Mongo by hand. gamesByDate filters on utc_date server
+// side - fetching all games and filtering here would hit the page limit before
+// reaching today.
+$('findGames').onclick = async () => {
+  const base = $('url').value.trim().replace(/\/$/, '');
+  const box = $('games');
+  box.innerHTML = '<div class="empty">Loading...</div>';
+
+  const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
+  const dayEnd = new Date(); dayEnd.setHours(23, 59, 59, 0);
+
+  try {
+    const res = await fetch(base + '/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `query ($start: DateTime!, $end: DateTime!) {
+          gamesByDate(startDate: $start, endDate: $end) {
+            id sport gender date time city result
+          }
+        }`,
+        variables: { start: dayStart.toISOString(), end: dayEnd.toISOString() },
+      }),
+    });
+    const json = await res.json();
+    if (json.errors) { box.innerHTML = `<div class="empty">GraphQL: ${json.errors[0].message}</div>`; return; }
+
+    const games = json?.data?.gamesByDate || [];
+    if (!games.length) {
+      box.innerHTML = '<div class="empty">No games today. Live updates only fire for ' +
+                      'games happening now, so paste an id manually to test the room plumbing.</div>';
+      return;
+    }
+    box.innerHTML = `<div class="empty">${games.length} game(s) today</div>`;
+    for (const g of games) {
+      const row = document.createElement('div');
+      row.className = 'game';
+      row.innerHTML = `<span>${g.sport} ${g.gender} — ${g.date} ${g.time || ''}` +
+                      `${g.result ? ' — ' + g.result : ''}</span><code>${g.id}</code>`;
+      const b = document.createElement('button');
+      b.className = 'use';
+      b.textContent = 'Use';
+      b.onclick = () => { $('gameId').value = g.id; };
+      row.appendChild(b);
+      box.appendChild(row);
+    }
+  } catch (e) {
+    box.innerHTML = `<div class="empty">Fetch failed: ${e.message}. Is the server running at ${base}?</div>`;
+  }
+};
+
+setState(false);
+</script>
+</body>
+</html>
