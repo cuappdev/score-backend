@@ -362,7 +362,6 @@ def parse_calendar_data(date):
             game_data = calendar_event_to_game_data(event)
             if not game_data:
                 continue
-            game_data = attach_game_details(game_data)
             try:
                 process_game_data(game_data)
             except Exception as exc:
@@ -453,18 +452,17 @@ def build_game_updates(game_data, team, city, state, location, game_time, utc_da
     }
 
 
-def attach_game_details(game_data):
+def process_game_data(game_data):
     """
-    Fetch the box score and recap for a game that has been played.
+    Process the game data and store it in the database.
 
-    The calendar feed carries links but no play data, so these are separate
-    requests. An unplayed game has no links, so nothing is fetched and
-    _detail_updates leaves whatever is stored untouched.
-
-    The *_scrape_succeeded flags tell _detail_updates whether a missing value
-    means "this game has no box score" or "we could not reach the page", so a
-    failed fetch never blanks a stored box score.
+    Args:
+        game_data (dict): A dictionary containing the data for a game.
     """
+    from src.services import GameService, TeamService
+
+    # The calendar carries links but no play data, so the box score and recap are separate fetches
+
     box_score_link = safe_absolute_url(game_data.get("box_score_link"))
     game_data["_box_score_scrape_succeeded"] = False
 
@@ -485,8 +483,7 @@ def attach_game_details(game_data):
             game_data["box_score"] = details.get("scoring_summary")
             game_data["score_breakdown"] = details.get("scores")
 
-            # These sports list the home team first, so swap to keep Cornell
-            # in the first column for home games.
+            # These sports list the home team first, so swap to keep Cornell in the first column for home games
             if game_data["sport"] in ("Baseball", "Football", "Lacrosse"):
                 if "Ithaca" in (game_data.get("city") or "") and game_data.get("box_score"):
                     for event in game_data["box_score"]:
@@ -503,18 +500,6 @@ def attach_game_details(game_data):
         recap = _recap(recap_link)
         game_data["_recap_scrape_succeeded"] = recap.pop("success", False)
         game_data.update(recap)
-
-    return game_data
-
-
-def process_game_data(game_data):
-    """
-    Process the game data and store it in the database.
-
-    Args:
-        game_data (dict): A dictionary containing the data for a game.
-    """
-    from src.services import GameService, TeamService
 
     # calendar_event_to_game_data has already split city, state and venue and
     # canonicalized the state, so take them as given.
