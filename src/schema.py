@@ -8,7 +8,6 @@ from src.mutations import (
     SignupUser,
     RefreshAccessToken,
     LogoutUser,
-    DeleteUser,
     AddFavoriteTeam,
     RemoveFavoriteTeam,
     AddBookmarkedHighlight,
@@ -38,8 +37,6 @@ class Mutation(ObjectType):
     logout_user = LogoutUser.Field(
         description="Revoke the current token (access or refresh). Send token in Authorization header.",
     )
-    delete_user = DeleteUser.Field(
-        description="Permanently delete the current user's application and Firebase accounts (requires auth).",
     add_favorite_team = AddFavoriteTeam.Field(
         description="Add a team, identified by gender and sport, to the current user's favorites (requires auth).",
     )
