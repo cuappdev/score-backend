@@ -35,6 +35,8 @@ class YoutubeVideoService:
             url=data.get("url"),
             published_at=data.get("published_at"),
             duration=data.get("duration"),
+            sport=data.get("sport"),
+            gender=data.get("gender"),
         )
         YoutubeVideoRepository.insert(video)
         return video

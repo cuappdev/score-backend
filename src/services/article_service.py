@@ -27,6 +27,7 @@ class ArticleService:
             article = Article(
                 title=article_data["title"],
                 sports_type=article_data["sports_type"],
+                gender=article_data.get("gender"),
                 published_at=article_data["published_at"],
                 url=article_data["url"],
                 slug=article_data["slug"],
@@ -49,6 +50,7 @@ class ArticleService:
                 Article(
                     title=data["title"],
                     sports_type=data["sports_type"],
+                    gender=data.get("gender"),
                     published_at=data["published_at"],
                     url=data["url"],
                     slug=data["slug"],
