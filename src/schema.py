@@ -63,6 +63,7 @@ class Mutation(ObjectType):
     )
     delete_report = DeleteReport.Field(
         description="Delete a submitted report.",
+    )
     add_favorite_team = AddFavoriteTeam.Field(
         description="Add a team, identified by gender and sport, to the current user's favorites (requires auth).",
     )

@@ -1,6 +1,10 @@
+from dotenv import load_dotenv
+
+load_dotenv()
+
 import requests
 from bs4 import BeautifulSoup
-from src.utils.convert_to_utc import convert_to_utc
+from src.utils.convert_to_utc import convert_to_utc, parse_time_string
 from src.utils.constants import *
 from src.scrapers.game_details_scrape import scrape_game, scrape_sidearm_story_recap
 from src.utils.helpers import (
@@ -11,11 +15,17 @@ from src.utils.helpers import (
     normalize_game_data,
     normalize_placeholder,
     safe_absolute_url,
+    get_with_retries,
 )
 import base64
 import logging
 import re
 import threading
+from datetime import timedelta, datetime, timezone
+import pytz
+
+# The calendar feed reports event dates and times in Cornell's local timezone.
+EASTERN_TZ = pytz.timezone("US/Eastern")
 from urllib.parse import urljoin, urlparse
 
 
@@ -53,6 +63,51 @@ def infer_game_year(date_text, season_years):
     return first_year
 
 
+def eastern_today():
+    """
+    Today's date in Cornell's timezone. The calendar feed labels events in
+    Eastern time, so comparing against the server's local date is wrong whenever
+    the two disagree: in a UTC container (see Dockerfile) anything after 8pm
+    Eastern already reads as tomorrow, which would skip evening games while they
+    are being played.
+    """
+    return datetime.now(EASTERN_TZ).date()
+
+
+def is_date_today(date_str):
+    """
+    Returns True if the given ISO date string (e.g. "2025-12-28T00:00:00")
+    is the current date in Eastern time. Compares only year, month, day.
+    """
+    if not date_str:
+        return False
+    try:
+        date_clean = date_str.split(".")[0].replace("Z", "")
+        event_date = datetime.strptime(date_clean, "%Y-%m-%dT%H:%M:%S").date()
+        return event_date == eastern_today()
+    except (ValueError, TypeError):
+        return False
+
+
+def is_match_time_passed(time_str):
+    """
+    Returns True if the current time is past the given time (today).
+    time_str: e.g. "4:00 p.m." — assumes today's date.
+    """
+    if not time_str:
+        return False
+
+    # convert_to_utc falls back to midnight when it cannot read a clock value,
+    # which would make "TBA", "TBD" and "All Day" look started from midnight on.
+    # Require a real time before comparing.
+    if parse_time_string(time_str) is None:
+        return False
+
+    today_str = eastern_today().strftime("%b %d %Y")
+    match_utc = convert_to_utc(today_str, time_str)
+    if match_utc is None:
+        return False
+    return datetime.now(timezone.utc) >= match_utc
 def absolute_url(link):
     return safe_absolute_url(link)
 
@@ -266,6 +321,48 @@ def parse_schedule_page(url, sport, gender):
         process_game_data(game_data)
 
 
+def as_game_list(result):
+    """
+    Normalize a lookup result, which may be a single game, a list, or None,
+    into a list.
+    """
+    if result is None:
+        return []
+    if isinstance(result, list):
+        return result
+    return [result]
+
+
+def narrow_by_time(candidates, game_time):
+    """
+    Reduce several matching games to the one being processed.
+
+    Returns (game, ambiguous). A caller that gets ambiguous=True must not guess:
+    these lookups deliberately ignore opponent_id, so picking arbitrarily is how
+    one game ends up overwriting another on a doubleheader.
+    """
+    if not candidates:
+        return None, False
+    if len(candidates) == 1:
+        return candidates[0], False
+
+    if game_time:
+        timed = [game for game in candidates if game.time == game_time]
+        if len(timed) == 1:
+            return timed[0], False
+
+    return None, True
+
+
+def is_placeholder_game(game):
+    """True if the game's opponent is still a tournament placeholder."""
+    # Imported here for the same reason process_game_data does: src.services
+    # pulls in the database layer, which must not load at module import time.
+    from src.services import TeamService
+
+    team = TeamService.get_team_by_id(game.opponent_id)
+    return bool(team and is_tournament_placeholder_team(team.name))
+
 def _detail_updates(game_data):
     updates = {}
     if game_data.get("_box_score_scrape_succeeded", "box_score" in game_data):
@@ -355,18 +452,69 @@ def process_game_data(game_data):
             if str(final_box_cor_score) != str(cor_final) or str(final_box_opp_score) != str(opp_final):
                 game_data["score_breakdown"] = game_data["score_breakdown"][::-1]
 
-    curr_game, match_level = GameService.get_game_by_scraper_match_levels(
-        game_data["date"],
-        game_data["sport"],
-        game_data["gender"],
-        team.id,
-        city,
-        state,
-        location,
-    )
-    if curr_game is None and match_level is not None:
+    # This lookup ignores opponent_id so a row still holding a placeholder can be
+    # claimed by the real opponent. Filter to placeholders before choosing, or a
+    # real game returned first would mask a placeholder behind it and we would
+    # create a duplicate instead of filling the placeholder in.
+    tournament_matches = [
+        game
+        for game in as_game_list(
+            GameService.get_game_by_tournament_key_fields(
+                city,
+                game_data["date"],
+                game_data["gender"],
+                location,
+                game_data["sport"],
+                state,
+            )
+        )
+        if is_placeholder_game(game)
+    ]
+
+    curr_game, ambiguous = narrow_by_time(tournament_matches, game_time)
+    if ambiguous:
+        logger.warning(
+            "Skipping %s %s on %s at %s: %s placeholder games match and the time "
+            "%r does not single one out",
+            game_data["gender"],
+            game_data["sport"],
+            game_data["date"],
+            city,
+            len(tournament_matches),
+            game_time,
+        )
         return None
 
+    # If no placeholder matched, look the game up by its actual opponent.
+    if not curr_game:
+        key_matches = as_game_list(
+            GameService.get_game_by_key_fields(
+                city,
+                game_data["date"],
+                game_data["gender"],
+                location,
+                team.id,
+                game_data["sport"],
+                state,
+            )
+        )
+        curr_game, ambiguous = narrow_by_time(key_matches, game_time)
+        if ambiguous:
+            logger.warning(
+                "Skipping %s %s vs %s on %s: %s games match and the time %r does "
+                "not single one out",
+                game_data["gender"],
+                game_data["sport"],
+                game_data["opponent_name"],
+                game_data["date"],
+                len(key_matches),
+                game_time,
+            )
+            return None
+
+    # _detail_updates only writes box_score/score_breakdown and the recap fields
+    # when their scrape actually succeeded, so a failed scrape leaves the stored
+    # values alone instead of filling it with None
     updates = {
         "time": game_time,
         "result": game_data["result"],
@@ -378,6 +526,7 @@ def process_game_data(game_data):
         "ticket_link": game_data["ticket_link"],
         **_detail_updates(game_data),
     }
+
     if curr_game:
         current_team = TeamService.get_team_by_id(curr_game.opponent_id)
         if current_team and is_tournament_placeholder_team(current_team.name):
@@ -398,5 +547,81 @@ def process_game_data(game_data):
         "recap_article_image": updates.get("recap_article_image"),
         "recap_published_at": updates.get("recap_published_at"),
     }
+
     created = GameService.create_game(create_data)
     return created.id if created else None
+
+def get_live_games(data):
+    """
+    Get live games from the given data.
+    """
+    today = next((day for day in data or [] if is_date_today(day.get("date", ""))), None)
+    if not today:
+        return []
+
+    # The feed sends "events": null for a day with nothing scheduled, so the
+    # get() default never fires - the key is present, its value is just None.
+    today_games = today.get("events") or []
+    return [game for game in today_games if is_match_time_passed(game.get("time", ""))]
+
+def fetch_live_games():
+    """
+    Fetch live games and apply them.
+
+    Runs inline rather than spawning a thread: APScheduler already executes the
+    job on its own worker, and its default max_instances=1 then means a cycle
+    that overruns the 30s interval is skipped instead of piling up overlapping
+    scrapes that duplicate each other's work.
+    """
+    parse_live_page(LIVE_PREFIX)
+
+def parse_live_page(url):
+    from src.services import GameService
+
+    # Eastern, like the rest of the live path: near midnight UTC the server's
+    # own date can be a day ahead, which would request the wrong feed week.
+    today = eastern_today()
+    days_since_saturday = (today.weekday() - 5) % 7
+
+    # go back to most recent saturday
+    last_saturday = today - timedelta(days=days_since_saturday)
+
+    params = {
+        "type": "events",
+        "sport": 0,
+        "location": "all",
+        "date": last_saturday.strftime("%Y-%m-%dT00:00:00"),
+    }
+
+    headers = {
+        **HTTP_REQUEST_HEADERS,
+        "Accept": "application/json, text/javascript, */*; q=0.01",
+        "Referer": LIVE_PREFIX,
+    }
+
+    url = "https://cornellbigred.com/services/responsive-calendar.ashx"
+    r = get_with_retries(url, params=params, headers=headers, timeout=15)
+    data = r.json()
+
+    # Keep only days where the date is today (compare date string to current date)
+    live_games = get_live_games(data)
+
+    seen_stats_urls = set()
+    for game in live_games:
+        stats_url = ((game.get("media") or {}).get("stats") or {}).get("url")
+        if stats_url:
+            if stats_url in seen_stats_urls:
+                continue
+            seen_stats_urls.add(stats_url)
+        try:
+            GameService.update_live_game(game)
+        except Exception as e:
+            # Keep going: one bad feed should not cost every other live game
+            # its update for this cycle.
+            logger.error(
+                "Failed to update live game %s (%s): %s",
+                game.get("id"),
+                stats_url or "no stats url",
+                e,
+                exc_info=True,
+            )
