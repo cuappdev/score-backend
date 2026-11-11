@@ -14,6 +14,7 @@ from flask import Flask, jsonify, request, g
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from flask_graphql import GraphQLView
+from flask_socketio import SocketIO
 from graphene import Schema
 from src.schema import Query, Mutation
 from src.scrapers.games_scraper import fetch_game_schedule
@@ -21,6 +22,8 @@ from src.scrapers.youtube_stats import fetch_videos
 from src.scrapers.daily_sun_scrape import fetch_news
 from src.services.article_service import ArticleService
 from src.utils.constants import JWT_SECRET_KEY
+from src.websocket_manager import init_websocket_manager
+from src.websocket_events import register_websocket_events
 from src.utils.team_loader import TeamLoader
 from src.database import db, client
 
@@ -65,6 +68,8 @@ def check_if_token_revoked(jwt_header, jwt_payload: dict) -> bool:
     jti = jwt_payload["jti"]
     return db["token_blocklist"].find_one({"jti": jti}) is not None
 
+# Initialize SocketIO
+socketio = SocketIO(app, cors_allowed_origins="*", logger=True, engineio_logger=True)
 
 @app.before_request
 def start_timer():
@@ -135,13 +140,16 @@ def health_check():
     except Exception:
         return jsonify({"status": "unhealthy", "database": "disconnected"}), 503
 
-
 app.add_url_rule(
     "/graphql",
     view_func=GraphQLView.as_view(
         "graphql", schema=schema, graphiql=True, get_context=create_context
     ),
 )
+
+# Initialize WebSocket manager and register events
+init_websocket_manager(socketio)
+register_websocket_events(socketio)
 
 # Setup command line arguments
 def parse_args():
@@ -232,4 +240,8 @@ if not args.no_daily_sun and not args.no_scrape:
 
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=8000)
+    # allow_unsafe_werkzeug lets the dev server handle WebSockets; production runs
+    # under gunicorn (see Dockerfile), so this path is local development only.
+    socketio.run(
+        app, debug=True, host="0.0.0.0", port=8000, allow_unsafe_werkzeug=True
+    )
