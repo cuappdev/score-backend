@@ -9,6 +9,21 @@ IMAGE_PREFIX = "https://dxbhsrqyrr690.cloudfront.net/sidearm.nextgen.sites/corne
 # Base URL
 BASE_URL = "https://cornellbigred.com"
 
+# US state names and abbreviations as the calendar feed writes them, mapped to a
+# canonical two-letter form. The feed is inconsistent about this: Ithaca appears
+# as both "Ithaca, N.Y." and "Ithaca, NY", so without normalizing, the same
+# venue produces two different games.
+STATE_ABBREVIATIONS = {
+    "ALA": "AL", "ARIZ": "AZ", "ARK": "AR", "CALIF": "CA", "CAL": "CA",
+    "COLO": "CO", "CONN": "CT", "DEL": "DE", "FLA": "FL", "GA": "GA",
+    "ILL": "IL", "IND": "IN", "KAN": "KS", "KANS": "KS", "KY": "KY",
+    "LA": "LA", "MASS": "MA", "MD": "MD", "MICH": "MI", "MINN": "MN",
+    "MISS": "MS", "MO": "MO", "MONT": "MT", "NEB": "NE", "NEBR": "NE",
+    "NEV": "NV", "OKLA": "OK", "ORE": "OR", "OREG": "OR", "PA": "PA",
+    "TENN": "TN", "TEX": "TX", "VT": "VT", "VA": "VA", "WASH": "WA",
+    "WIS": "WI", "WISC": "WI", "WYO": "WY",
+}
+
 CALENDAR_URL = f"https://cornellbigred.com/services/responsive-calendar.ashx?type=events&sport=0&location=all"
 
 # The tag for each game
@@ -187,3 +202,28 @@ CHANNEL_ID = "UClSQOi2gnn9bi7mcgQrAVKA"
 VIDEO_LIMIT = 20
 
 ARTICLE_IMG_TAG = ".dom-art-container img"
+
+# Restored: still used by the recap and URL-safety helpers.
+ALLOWED_URL_SCHEMES = frozenset({"http", "https"})
+
+ALLOWED_URL_HOSTS = frozenset({
+    "cornellbigred.com",
+    "dxbhsrqyrr690.cloudfront.net",
+})
+
+HTTP_REQUEST_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (compatible; CornellSportsScraper/1.0)",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+}
+
+RECAP_TAG = ".sidearm-schedule-game-links-recap a"
+
+SCHEDULE_DATE_BLOCK_TAG = ".sidearm-schedule-game-opponent-date"
+
+SIDEARM_STORY_HEADLINE = "h1.sidearm-story-template-headline"
+
+SIDEARM_STORY_IMAGE = ".sidearm-story-template-media img"
+
+SIDEARM_STORY_PUBLISHED_TIME = "time[pubdate]"
+
+SIDEARM_STORY_PUBLISHED_TIME_FALLBACK = ".sidearm-story-template-date time"

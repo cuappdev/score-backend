@@ -8,6 +8,7 @@ from src.utils.convert_to_utc import convert_to_utc, parse_time_string
 from src.utils.constants import *
 from src.scrapers.game_details_scrape import scrape_game, scrape_sidearm_story_recap
 from src.utils.helpers import (
+    DB_DATE_FORMAT,
     get_dominant_color,
     is_cornell_loss,
     is_allowed_url,
@@ -27,7 +28,6 @@ import pytz
 # The calendar feed reports event dates and times in Cornell's local timezone.
 EASTERN_TZ = pytz.timezone("US/Eastern")
 from urllib.parse import urljoin, urlparse
-from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 RECAP_FIELDS = ["recap_article_title", "recap_article_image", "recap_published_at"]
@@ -214,6 +214,125 @@ def fetch_game_schedule():
     
     for thread in threads:
         thread.join()
+
+def normalize_state(value):
+    """
+    Reduce a state to a canonical two-letter form.
+
+    The feed writes the same state several ways ("N.Y.", "NY", "Conn.", "CT"),
+    and city/state is part of how a game is looked up, so without this the same
+    venue matches as two different places.
+    """
+    if not value:
+        return None
+
+    letters = re.sub(r"[^A-Za-z]", "", str(value)).upper()
+    if not letters:
+        return None
+    if len(letters) == 2:
+        return letters
+    return STATE_ABBREVIATIONS.get(letters, str(value).strip())
+
+
+def split_event_location(location):
+    """
+    Split the feed's "City, ST" into (city, state), with the state canonicalized.
+
+    Some entries carry no comma at all, in which case the whole string is used
+    for both, matching what the old schedule parser did.
+    """
+    text = normalize_placeholder(location)
+    if not text or text == "TBA":
+        return "TBA", "TBA"
+
+    if "," in text:
+        city, state = [part.strip() for part in text.split(",", 1)]
+    else:
+        city = state = text.strip()
+    return normalize_placeholder(city), normalize_state(state)
+
+
+def build_result(result):
+    """
+    Render the feed's result object the way the schedule page wrote it, e.g.
+    "W,99-59". Returns None for a game that has not been played.
+    """
+    if not result:
+        return None
+
+    status = result.get("status")
+    team_score = result.get("team_score")
+    opponent_score = result.get("opponent_score")
+
+    # "N" means no result yet and an unplayed game carries null scores
+    if not status or status == "N" or team_score is None or opponent_score is None:
+        return None
+    return f"{status},{team_score}-{opponent_score}"
+
+
+def opponent_logo_url(opponent):
+    """Absolute URL for the opponent's logo, or None when the feed has none."""
+    image = (opponent or {}).get("image") or {}
+    path, filename = image.get("path"), image.get("filename")
+    if not path or not filename:
+        return None
+    return safe_absolute_url(f"{path.rstrip('/')}/{filename}")
+
+
+def calendar_event_to_game_data(event):
+    """
+    Convert one calendar event into the shape process_game_data expects.
+
+    Returns None for an event we cannot place, which currently means a sport
+    whose code is not in SIDEARM_SPORTS.
+    """
+    sport_info = SIDEARM_SPORTS.get((event.get("sport") or {}).get("global_sport_shortname"))
+    if not sport_info:
+        logger.warning(
+            "Skipping event %s: unknown sport code %r",
+            event.get("id"),
+            (event.get("sport") or {}).get("global_sport_shortname"),
+        )
+        return None
+
+    opponent = event.get("opponent") or {}
+    media = event.get("media") or {}
+    facility = event.get("facility") or {}
+    result = event.get("result") or {}
+
+    # The feed's date is ISO; the stored format is "Nov 8 (Sun) 2026".
+    utc_date = None
+    date_text = None
+    raw_date = event.get("date")
+    if raw_date:
+        try:
+            parsed = datetime.strptime(raw_date.split(".")[0].replace("Z", ""), "%Y-%m-%dT%H:%M:%S")
+            date_text = parsed.strftime(DB_DATE_FORMAT).replace(" 0", " ")
+            utc_date = EASTERN_TZ.localize(parsed).astimezone(timezone.utc)
+        except (ValueError, TypeError):
+            logger.warning("Skipping event %s: unparseable date %r", event.get("id"), raw_date)
+            return None
+
+    city, state = split_event_location(event.get("location"))
+
+    return {
+        "sport": sport_info["sport"],
+        "gender": sport_info["gender"],
+        "opponent_name": normalize_placeholder(opponent.get("title")),
+        "opponent_logo": opponent_logo_url(opponent),
+        "date": date_text,
+        "utc_date": utc_date,
+        "time": normalize_placeholder(event.get("time")),
+        "city": city,
+        "state": state,
+        # The feed keeps the venue separate from the city, it is absent for away games at a site Cornell does not track
+        "location": normalize_placeholder(facility.get("title")),
+        "result": build_result(result),
+        "ticket_link": ((media.get("tickets") or {}).get("url")),
+        "recap_link": ((result.get("recap") or {}).get("url")),
+        "box_score_link": ((result.get("boxscore") or {}).get("url")),
+    }
+
 
 def parse_calendar_data(date):
     """
