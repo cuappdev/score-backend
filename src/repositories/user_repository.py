@@ -1,4 +1,5 @@
 from bson import ObjectId
+from pymongo import ReturnDocument
 
 from src.database import db
 from src.models.user import User
@@ -24,6 +25,8 @@ class UserRepository:
         """Delete an application user by MongoDB ID."""
         result = db["users"].delete_one({"_id": ObjectId(user_id)})
         return result.deleted_count > 0
+
+    @staticmethod
     def add_favorite_team(user_id, gender, sport):
         document = db["users"].find_one_and_update(
             {"_id": ObjectId(user_id)},
