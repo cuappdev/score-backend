@@ -4,6 +4,13 @@ from src.models.youtube_video import YoutubeVideo
 
 class YoutubeVideoService:
     @staticmethod
+    def get_videos(sport=None, gender=None):
+        """
+        Retrieve YouTube videos, optionally filtered by sport and gender.
+        """
+        return YoutubeVideoRepository.find_filtered(sport=sport, gender=gender)
+
+    @staticmethod
     def get_all_videos():
         """
         Retrieve all stored YouTube videos.

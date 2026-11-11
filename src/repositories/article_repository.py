@@ -63,13 +63,22 @@ class ArticleRepository:
         """
         Retrieve articles by sports_type from the last N days, sorted by published_at descending.
         """
+        return ArticleRepository.find_recent_filtered(sports_type=sports_type, limit_days=limit_days)
+
+    @staticmethod
+    def find_recent_filtered(sports_type=None, gender=None, limit_days=3):
+        """
+        Retrieve articles from the last N days, optionally narrowed by sports_type
+        and gender, sorted by published_at descending.
+        """
         article_collection = daily_sun_db["news_articles"]
         # Calculate threshold as ISO 8601 string
         threshold = (datetime.now(timezone.utc) - timedelta(days=limit_days)).isoformat().replace('+00:00', 'Z')
-        query = {
-            "sports_type": sports_type,
-            "published_at": {"$gte": threshold}
-        }
+        query = {"published_at": {"$gte": threshold}}
+        if sports_type:
+            query["sports_type"] = sports_type
+        if gender:
+            query["gender"] = gender
         articles = article_collection.find(query).sort("published_at", -1)
         return [Article.from_dict(article) for article in articles]
     
