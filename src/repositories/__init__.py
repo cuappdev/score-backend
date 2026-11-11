@@ -3,3 +3,4 @@ from .team_repository import TeamRepository
 from .youtube_video_repository import YoutubeVideoRepository
 from .article_repository import ArticleRepository
 from .user_repository import UserRepository
+from .report_repository import ReportRepository

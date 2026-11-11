@@ -7,5 +7,6 @@ from .signup_user import SignupUser
 from .refresh_access_token import RefreshAccessToken
 from .logout_user import LogoutUser
 from .delete_user import DeleteUser
+from .report import CreateReport, DeleteReport
 from .favorite_team_mutations import AddFavoriteTeam, RemoveFavoriteTeam
 from .bookmarked_highlight_mutations import AddBookmarkedHighlight, RemoveBookmarkedHighlight

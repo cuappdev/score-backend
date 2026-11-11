@@ -3,3 +3,4 @@ from .team_query import TeamQuery
 from .youtube_video_query import YoutubeVideoQuery
 from .article_query import ArticleQuery
 from .user_query import UserQuery
+from .report_query import ReportQuery
