@@ -3,7 +3,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import requests
-from bs4 import BeautifulSoup
 from src.utils.convert_to_utc import convert_to_utc, parse_time_string
 from src.utils.constants import *
 from src.scrapers.game_details_scrape import scrape_game, scrape_sidearm_story_recap
@@ -27,40 +26,9 @@ import pytz
 
 # The calendar feed reports event dates and times in Cornell's local timezone.
 EASTERN_TZ = pytz.timezone("US/Eastern")
-from urllib.parse import urljoin, urlparse
 
 logger = logging.getLogger(__name__)
 RECAP_FIELDS = ["recap_article_title", "recap_article_image", "recap_published_at"]
-
-
-def extract_season_years(page_title):
-    """
-    Extracts season years from page title
-    If title is across years like '2024-25', it returns (first_year, second_year)
-    If single year, returns (year, None).
-    """
-    match = re.search(r"(\d{4})(?:-(\d{2}))?", page_title)
-    if match:
-        first_year = match.group(1)
-        second_year = None
-        if match.group(2):
-            second_year = first_year[:2] + match.group(2)
-        return first_year, second_year
-    return None, None
-
-def infer_game_year(date_text, season_years):
-    """
-    Determines the calendar year for a game based on month
-    August to December belong to the first year
-    """
-    first_year, second_year = season_years
-    month_abbr = date_text[:3]
-    if second_year:
-        if month_abbr in ("Aug", "Sep", "Oct", "Nov", "Dec"):
-            return first_year
-        else:
-            return second_year
-    return first_year
 
 
 def eastern_today():
@@ -108,74 +76,6 @@ def is_match_time_passed(time_str):
     if match_utc is None:
         return False
     return datetime.now(timezone.utc) >= match_utc
-def absolute_url(link):
-    return safe_absolute_url(link)
-
-
-def parse_game_links(game_item):
-    links = {}
-    for name, selector in {
-        "box_score_link": BOX_SCORE_TAG,
-        "recap_link": RECAP_TAG,
-        "ticket_link": GAME_TICKET_LINK,
-    }.items():
-        tag = game_item.select_one(selector)
-        href = tag.get("href") if tag else None
-        if name == "ticket_link":
-            ticket_url = urljoin(BASE_URL, href) if href else None
-            if ticket_url and urlparse(ticket_url).scheme.casefold() in ALLOWED_URL_SCHEMES:
-                links[name] = ticket_url
-            else:
-                if ticket_url:
-                    logger.warning("Skipping ticket URL with unapproved scheme: %s", ticket_url)
-                links[name] = None
-        else:
-            links[name] = absolute_url(href)
-    return links
-
-
-def parse_schedule_location(location_text):
-    if not location_text or str(location_text).strip().casefold() in {"tba", "tbd"}:
-        return "TBA", "TBA", "TBA"
-
-    parts = re.split(r"\s*/\s*|\s*\n\s*", str(location_text).strip(), maxsplit=1)
-    geo_location = parts[0].strip()
-    location = parts[1].strip() if len(parts) > 1 else "TBA"
-    if "," in geo_location:
-        city, state = [part.strip() for part in geo_location.split(",", 1)]
-    else:
-        city = state = geo_location
-    return tuple(normalize_placeholder(value) for value in (city, state, location))
-
-
-def parse_schedule_date_and_time(game_item):
-    """Read the start date and time without treating an end date as a time.
-
-    Sidearm uses the same date block for single-day and multi-day events. For
-    example, a tournament row can contain ``Nov 12``, ``Nov 15`` and ``TBA``
-    as separate spans. The old adjacent-sibling selector returned ``Nov 15``
-    as the time in that case.
-    """
-    date_block = game_item.select_one(SCHEDULE_DATE_BLOCK_TAG)
-    if not date_block:
-        return "", "TBA"
-
-    spans = date_block.find_all("span")
-    date_text = spans[0].get_text(" ", strip=True) if spans else ""
-    time_tag = next(
-        (
-            span
-            for span in spans[1:]
-            if "enddate" not in {name.casefold() for name in span.get("class", [])}
-        ),
-        None,
-    )
-    time_text = normalize_placeholder(
-        time_tag.get_text(" ", strip=True) if time_tag else None
-    )
-    return date_text, time_text
-
-
 def _recap(recap_link):
     if not recap_link:
         return {field: None for field in RECAP_FIELDS} | {"success": True}

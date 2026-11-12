@@ -319,25 +319,6 @@ def sidearm_dates_match(db_date: str, sidearm_date: str) -> bool:
         return db_day == sidearm_day
 
 
-def is_game_active(game_data: Dict) -> bool:
-        """
-        Check if a game is currently active (started but not completed).
-        
-        Args:
-            game_data: Game data from Sidearm API
-            
-        Returns:
-            True if game is active, False otherwise
-        """
-        if not game_data or 'Game' not in game_data:
-            return False
-        
-        game = game_data['Game']
-        return (
-            game.get('HasStarted', False) and 
-            not game.get('IsComplete', False)
-        )
-
 SCORING_KEYWORDS = [
     'GOAL', 'SCORE', 'TOUCHDOWN', 'FIELD GOAL', 'SHOT',
     'KILL', 'ACE', 'ATTACK', 'BLOCK', 'SERVICE', 'ERROR', 'HIT', 'SPIKE',
