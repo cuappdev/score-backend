@@ -14,6 +14,7 @@ BASE_URL = "https://cornellbigred.com"
 # as both "Ithaca, N.Y." and "Ithaca, NY", so without normalizing, the same
 # venue produces two different games.
 STATE_ABBREVIATIONS = {
+    # Associated Press style, which is what the feed writes ("Conn.", "Calif.").
     "ALA": "AL", "ARIZ": "AZ", "ARK": "AR", "CALIF": "CA", "CAL": "CA",
     "COLO": "CO", "CONN": "CT", "DEL": "DE", "FLA": "FL", "GA": "GA",
     "ILL": "IL", "IND": "IN", "KAN": "KS", "KANS": "KS", "KY": "KY",
@@ -22,6 +23,16 @@ STATE_ABBREVIATIONS = {
     "NEV": "NV", "OKLA": "OK", "ORE": "OR", "OREG": "OR", "PA": "PA",
     "TENN": "TN", "TEX": "TX", "VT": "VT", "VA": "VA", "WASH": "WA",
     "WIS": "WI", "WISC": "WI", "WYO": "WY",
+    # States AP never abbreviates, so the feed spells them out in full. Without
+    # these they are left as-is and the same venue reads as two places.
+    "ALASKA": "AK", "HAWAII": "HI", "IDAHO": "ID", "IOWA": "IA",
+    "MAINE": "ME", "OHIO": "OH", "TEXAS": "TX", "UTAH": "UT",
+    # Multi-word states, which lose their spaces and periods before lookup.
+    "WVA": "WV", "WVIRGINIA": "WV", "WESTVIRGINIA": "WV",
+    "NMEX": "NM", "NEWMEXICO": "NM", "NEWYORK": "NY", "NEWJERSEY": "NJ",
+    "NEWHAMPSHIRE": "NH", "RHODEISLAND": "RI", "NORTHCAROLINA": "NC",
+    "SOUTHCAROLINA": "SC", "NORTHDAKOTA": "ND", "SOUTHDAKOTA": "SD",
+    "NDAK": "ND", "SDAK": "SD", "DISTRICTOFCOLUMBIA": "DC",
 }
 
 CALENDAR_URL = f"https://cornellbigred.com/services/responsive-calendar.ashx?type=events&sport=0&location=all"
