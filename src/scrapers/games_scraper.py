@@ -185,13 +185,18 @@ def _recap(recap_link):
     return recap | {"success": True}
 
 def get_n_weeks_before_and_after_from_today(n):
-    today = datetime.now()
-    dates = []
-    for i in range(7, (n+1)*7, 7):
-        dates.append(today - timedelta(days=i))
-    for i in range(7, (n+1)*7, 7):
-        dates.append(today + timedelta(days=i))
-    return [date.strftime("%Y-%m-%d") for date in dates]
+    """
+    Week-start dates covering n weeks either side of today, today included.
+
+    Each fetch returns the seven days beginning at the date requested, so the
+    steps have to start at -n weeks and run through +n with no gaps. Counting
+    outward from 7 skipped today's own week, which is the one that matters most.
+    """
+    today = eastern_today()
+    return [
+        (today + timedelta(days=offset)).strftime("%Y-%m-%d")
+        for offset in range(-n * 7, (n + 1) * 7, 7)
+    ]
 
 def fetch_game_schedule():
     """
@@ -357,20 +362,29 @@ def parse_calendar_data(date):
         logger.warning("Calendar feed at %s was not JSON: %s", url, exc)
         return
 
+    # A multi-day event is listed under every day it spans, so the same event
+    # arrives several times in one response. Keep one of each.
+    # The feed also sends "events": null for an empty day, so a get() default
+    # never fires: the key is present, its value is just None.
+    events = {}
     for day in events_data or []:
         for event in day.get("events") or []:
-            game_data = calendar_event_to_game_data(event)
-            if not game_data:
-                continue
-            try:
-                process_game_data(game_data)
-            except Exception as exc:
-                logger.error(
-                    "Failed to process calendar event %s: %s",
-                    event.get("id"),
-                    exc,
-                    exc_info=True,
-                )
+            events.setdefault(event.get("id"), event)
+
+    for event in events.values():
+        game_data = calendar_event_to_game_data(event)
+        if not game_data:
+            continue
+        try:
+            process_game_data(game_data)
+        except Exception as exc:
+            # One malformed event should not cost the rest of the week.
+            logger.error(
+                "Failed to process calendar event %s: %s",
+                event.get("id"),
+                exc,
+                exc_info=True,
+            )
 
 
 def as_game_list(result):
@@ -538,7 +552,7 @@ def process_game_data(game_data):
         team = TeamService.create_team(team_data)
 
     # ISO format
-    utc_date_obj = game_data["date"]
+    utc_date_obj = game_data["utc_date"]
     utc_date_str = utc_date_obj.isoformat() if hasattr(utc_date_obj, "isoformat") else utc_date_obj
 
     game_time = normalize_placeholder(game_data.get("time"))

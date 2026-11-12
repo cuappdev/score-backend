@@ -66,8 +66,20 @@ class GameService:
     def update_game(game_id, data):
         """
         Update a game by its ID.
+
+        An update can violate a unique index when it makes one game look like
+        another, which happens where the database already holds two rows for
+        the same game that differed only in formatting. Log and move on rather
+        than failing the whole scrape over pre-existing duplicates.
         """
-        GameRepository.update_by_id(game_id, data)
+        try:
+            GameRepository.update_by_id(game_id, data)
+        except DuplicateKeyError:
+            logger.warning(
+                "Skipping update to game %s: it would duplicate an existing game. "
+                "Run scripts/dedupe_games.py to clear the older row.",
+                game_id,
+            )
 
     @staticmethod
     def get_game_by_data(city, date, gender, location, opponent_id, sport, state, time):

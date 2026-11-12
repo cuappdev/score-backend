@@ -36,6 +36,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.database import db  # noqa: E402
 from src.scrapers.games_scraper import calendar_event_to_game_data  # noqa: E402
 from src.services import TeamService  # noqa: E402
+from src.utils.convert_to_utc import parse_time_string  # noqa: E402
 from src.utils.constants import CALENDAR_URL, HTTP_REQUEST_HEADERS  # noqa: E402
 from src.utils.helpers import DB_DATE_FORMAT  # noqa: E402
 
@@ -108,13 +109,24 @@ def find_stored_game(collection, mapped):
     Returns (game, reason). game is None when nothing matches or when more than
     one does, with the reason naming which.
     """
-    query = {
+    base = {
         "date": mapped["date"],
         "sport": mapped["sport"],
         "gender": mapped["gender"],
-        "time": mapped["time"],
     }
-    candidates = list(collection.find(query, {"_id": 1, "opponent_id": 1, "event_id": 1}))
+    projection = {"_id": 1, "opponent_id": 1, "event_id": 1, "time": 1}
+    candidates = list(collection.find({**base, "time": mapped["time"]}, projection))
+
+    if not candidates:
+        # The old scraper sometimes wrote a date or a placeholder into the time
+        # column for multi-day events ("Sep 27 (Sun)", "All Day", "TBD"), so
+        # those rows can never match on time. Fall back to the day's games for
+        # this team and let the opponent separate them.
+        candidates = [
+            row
+            for row in collection.find(base, projection)
+            if parse_time_string(row.get("time")) is None
+        ]
 
     if not candidates:
         return None, "no stored game"
