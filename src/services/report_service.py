@@ -106,12 +106,9 @@ class ReportService:
             client = gspread.service_account(filename=credentials_path)
             sheet_name = os.getenv("BUG_REPORT_SHEET_NAME", DEFAULT_REPORT_SHEET_NAME)
             worksheet = client.open_by_key(sheet_id).worksheet(sheet_name)
-            try:
-                cell = worksheet.find(str(report_id), in_column=1)
-            except gspread.exceptions.CellNotFound:
-                return
-            if cell:
-                worksheet.delete_rows(cell.row)
+            cells = worksheet.findall(str(report_id), in_column=1)
+            if cells:
+                worksheet.delete_rows(cells[0].row)
         except Exception:
             logging.exception("Could not remove report %s from Google Sheets", report_id)
 
