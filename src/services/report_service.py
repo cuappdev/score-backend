@@ -1,5 +1,7 @@
+from concurrent.futures import ThreadPoolExecutor
 import logging
 import os
+from threading import Lock
 
 from graphql import GraphQLError
 
@@ -20,9 +22,21 @@ REPORT_ISSUES = frozenset(
     }
 )
 
+# Keep Google Sheets work bounded so anonymous report submissions cannot create
+# an unbounded number of background threads.
+REPORT_SHEET_EXECUTOR = ThreadPoolExecutor(
+    max_workers=2,
+    thread_name_prefix="report-sheet",
+)
+
 
 class ReportService:
     """Business logic for creating and managing anonymous reports."""
+
+    _google_sheet_client = None
+    _google_sheet_worksheet = None
+    _google_sheet_cache_key = None
+    _google_sheet_cache_lock = Lock()
 
     @staticmethod
     def create_report(issue, sport=None, description=None):
@@ -41,7 +55,7 @@ class ReportService:
             description=description,
         )
         ReportRepository.insert(report)
-        ReportService._mirror_to_google_sheet(report)
+        ReportService._mirror_to_google_sheet_async(report)
         return report
 
     @staticmethod
@@ -63,19 +77,10 @@ class ReportService:
     @staticmethod
     def _mirror_to_google_sheet(report):
         """Best-effort sheet mirroring; the database remains the source of truth."""
-        sheet_id = os.getenv("BUG_REPORT_SHEET_ID") or os.getenv("SHEET_KEY")
-        credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS") or os.getenv(
-            "GOOGLE_SERVICE_ACCOUNT_PATH"
-        )
-        if not sheet_id or not credentials_path:
-            return
-
         try:
-            import gspread
-
-            client = gspread.service_account(filename=credentials_path)
-            sheet_name = os.getenv("BUG_REPORT_SHEET_NAME", DEFAULT_REPORT_SHEET_NAME)
-            worksheet = client.open_by_key(sheet_id).worksheet(sheet_name)
+            worksheet = ReportService._get_worksheet()
+            if worksheet is None:
+                return
             worksheet.append_row(
                 [
                     report.id,
@@ -91,21 +96,45 @@ class ReportService:
             logging.exception("Could not mirror report %s to Google Sheets", report.id)
 
     @staticmethod
+    def _get_worksheet():
+        """Return the configured worksheet, reusing its authenticated client."""
+        sheet_id = os.getenv("BUG_REPORT_SHEET_ID") or os.getenv("SHEET_KEY")
+        # Keep Sheets access separate from the Firebase Admin credentials.
+        credentials_path = os.getenv("GOOGLE_SHEETS_CREDENTIALS")
+        if not sheet_id or not credentials_path:
+            return None
+
+        sheet_name = os.getenv("BUG_REPORT_SHEET_NAME", DEFAULT_REPORT_SHEET_NAME)
+        cache_key = (sheet_id, credentials_path, sheet_name)
+        with ReportService._google_sheet_cache_lock:
+            if cache_key != ReportService._google_sheet_cache_key:
+                import gspread
+
+                client = gspread.service_account(filename=credentials_path)
+                worksheet = client.open_by_key(sheet_id).worksheet(sheet_name)
+                ReportService._google_sheet_client = client
+                ReportService._google_sheet_worksheet = worksheet
+                ReportService._google_sheet_cache_key = cache_key
+
+            return ReportService._google_sheet_worksheet
+
+    @staticmethod
+    def _mirror_to_google_sheet_async(report):
+        """Queue sheet mirroring so report creation is not blocked by Google."""
+        try:
+            REPORT_SHEET_EXECUTOR.submit(ReportService._mirror_to_google_sheet, report)
+        except RuntimeError:
+            # The executor may be shutting down during process termination. The
+            # database write has already succeeded, so log and leave it intact.
+            logging.exception("Could not queue report %s for Google Sheets", report.id)
+
+    @staticmethod
     def _remove_from_google_sheet(report_id):
         """Best-effort removal from the optional Google Sheets mirror."""
-        sheet_id = os.getenv("BUG_REPORT_SHEET_ID") or os.getenv("SHEET_KEY")
-        credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS") or os.getenv(
-            "GOOGLE_SERVICE_ACCOUNT_PATH"
-        )
-        if not sheet_id or not credentials_path:
-            return
-
         try:
-            import gspread
-
-            client = gspread.service_account(filename=credentials_path)
-            sheet_name = os.getenv("BUG_REPORT_SHEET_NAME", DEFAULT_REPORT_SHEET_NAME)
-            worksheet = client.open_by_key(sheet_id).worksheet(sheet_name)
+            worksheet = ReportService._get_worksheet()
+            if worksheet is None:
+                return
             cells = worksheet.findall(str(report_id), in_column=1)
             if cells:
                 worksheet.delete_rows(cells[0].row)

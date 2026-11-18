@@ -1,5 +1,4 @@
 from graphene import ID, DateTime, ObjectType, Field, String, List, Int
-from datetime import datetime
 
 
 class FavoriteTeamType(ObjectType):

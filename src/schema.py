@@ -1,4 +1,4 @@
-from graphene import ObjectType, Schema, Mutation
+from graphene import ObjectType, Schema
 from src.mutations import (
     CreateGame,
     CreateTeam,

@@ -7,3 +7,4 @@ __pycache__/
 ca-certificate.crt
 firebase-service-account-key.json
 firebase_serviceAccountKey.json
+google-sheets-service-account.json

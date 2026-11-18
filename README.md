@@ -39,6 +39,11 @@ server:
 file. For Docker Compose, set `FIREBASE_CREDENTIALS_HOST_PATH` to the host path
 of that file; it is mounted into the container automatically.
 
+`GOOGLE_SHEETS_CREDENTIALS` is optional and must point to a separate Google
+service-account JSON file for the report Google Sheets mirror. Grant that
+service account access to the target sheet, and do not reuse the Firebase
+service-account key.
+
 Clients should call `signupUser` once with the Firebase `idToken`, or call
 `loginUser` for an existing account. Send the returned access token on protected
 requests using:
