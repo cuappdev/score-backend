@@ -2,6 +2,8 @@ from graphene import Field, Mutation, String
 
 from src.services.report_service import ReportService
 from src.types import ReportType
+from src.utils.auth import require_admin
+from src.utils.graphql_errors import graphql_jwt_required
 
 
 class CreateReport(Mutation):
@@ -27,5 +29,7 @@ class DeleteReport(Mutation):
 
     report = Field(ReportType, required=True)
 
+    @graphql_jwt_required()
     def mutate(self, info, report_id):
+        require_admin()
         return DeleteReport(report=ReportService.delete_report(report_id))

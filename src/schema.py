@@ -74,7 +74,7 @@ class Mutation(ObjectType):
         description="Submit a bug or data-quality report.",
     )
     delete_report = DeleteReport.Field(
-        description="Delete a submitted report.",
+        description="Delete a submitted report (admin only).",
     )
 
 
