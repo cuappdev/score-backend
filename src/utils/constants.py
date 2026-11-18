@@ -1,5 +1,9 @@
 import os
 
+# Shared validation limits
+MAX_REPORT_DESCRIPTION_LENGTH = 5000
+DEFAULT_REPORT_SHEET_NAME = "Bug Reports"
+
 # JWT 
 JWT_SECRET_KEY = os.environ["JWT_SECRET_KEY"]
 

@@ -5,6 +5,10 @@ from graphql import GraphQLError
 
 from src.models.report import Report
 from src.repositories.report_repository import ReportRepository
+from src.utils.constants import (
+    DEFAULT_REPORT_SHEET_NAME,
+    MAX_REPORT_DESCRIPTION_LENGTH,
+)
 
 
 REPORT_ISSUES = frozenset(
@@ -28,7 +32,7 @@ class ReportService:
 
         if issue not in REPORT_ISSUES:
             raise GraphQLError("Issue is not a valid report category.")
-        if description and len(description) > 5000:
+        if description and len(description) > MAX_REPORT_DESCRIPTION_LENGTH:
             raise GraphQLError("Report description is too long.")
 
         report = Report(
@@ -70,7 +74,7 @@ class ReportService:
             import gspread
 
             client = gspread.service_account(filename=credentials_path)
-            sheet_name = os.getenv("BUG_REPORT_SHEET_NAME", "Bug Reports")
+            sheet_name = os.getenv("BUG_REPORT_SHEET_NAME", DEFAULT_REPORT_SHEET_NAME)
             worksheet = client.open_by_key(sheet_id).worksheet(sheet_name)
             worksheet.append_row(
                 [
@@ -100,7 +104,7 @@ class ReportService:
             import gspread
 
             client = gspread.service_account(filename=credentials_path)
-            sheet_name = os.getenv("BUG_REPORT_SHEET_NAME", "Bug Reports")
+            sheet_name = os.getenv("BUG_REPORT_SHEET_NAME", DEFAULT_REPORT_SHEET_NAME)
             worksheet = client.open_by_key(sheet_id).worksheet(sheet_name)
             try:
                 cell = worksheet.find(str(report_id), in_column=1)
