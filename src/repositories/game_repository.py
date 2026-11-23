@@ -103,6 +103,20 @@ class GameRepository:
         return Game.from_dict(game_data) if game_data else None
 
     @staticmethod
+    def find_by_event_id(event_id):
+        """
+        Retrieve a game by Sidearm's calendar event id.
+
+        This is the exact identifier for a game, so unlike the field-based
+        lookups it cannot confuse two games on the same day at the same venue.
+        """
+        if event_id is None:
+            return None
+        game_collection = db["game"]
+        game = game_collection.find_one({"event_id": event_id})
+        return Game.from_dict(game) if game else None
+
+    @staticmethod
     def find_by_key_fields(city, date, gender, location, opponent_id, sport, state):
         """
         Find games without time for duplicate games

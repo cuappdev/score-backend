@@ -49,6 +49,7 @@ class Game:
         recap_article_title=None,
         recap_article_image=None,
         recap_published_at=None,
+        event_id=None,
     ):
         self.id = id if id else str(ObjectId())
         self.city = city
@@ -65,6 +66,9 @@ class Game:
         self.team = team
         self.utc_date = utc_date
         self.ticket_link = ticket_link
+        # Sidearm's calendar event id. Stable per game, so it identifies a game
+        # exactly where date/venue matching cannot (doubleheaders, tournaments).
+        self.event_id = event_id
         self.is_live = is_live
         self.last_updated = last_updated
         self.recap_link = recap_link
@@ -76,7 +80,7 @@ class Game:
         """
         Converts the Game object to a dictionary format for MongoDB storage.
         """
-        return {
+        document = {
             "_id": self.id,
             "city": self.city,
             "date": self.date,
@@ -100,6 +104,13 @@ class Game:
             "recap_published_at": self.recap_published_at,
         }
 
+        # A sparse unique index still indexes an explicit null, so two games
+        # without an event_id would collide on insert. Omit the key instead.
+        if self.event_id is not None:
+            document["event_id"] = self.event_id
+
+        return document
+
     @staticmethod
     def from_dict(data) -> None:
         """
@@ -121,6 +132,7 @@ class Game:
             team=data.get("team"),
             utc_date=data.get("utc_date"),
             ticket_link=data.get("ticket_link"),
+            event_id=data.get("event_id"),
             is_live=data.get("is_live"),
             last_updated=data.get("last_updated"),
             recap_link=data.get("recap_link"),

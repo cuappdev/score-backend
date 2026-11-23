@@ -3,77 +3,39 @@ import os
 # JWT 
 JWT_SECRET_KEY = os.environ["JWT_SECRET_KEY"]
 
-# Prefix for opponent image URLs
-IMAGE_PREFIX = "https://dxbhsrqyrr690.cloudfront.net/sidearm.nextgen.sites/cornellbigred.com"
-
 # Base URL
 BASE_URL = "https://cornellbigred.com"
 
-# Use the same headers for schedule and detail requests. Sidearm pages can
-# return an incomplete response to requests that do not look like a browser.
-HTTP_REQUEST_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (compatible; CornellSportsScraper/1.0)",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+# US state names and abbreviations as the calendar feed writes them, mapped to a
+# canonical two-letter form. The feed is inconsistent about this: Ithaca appears
+# as both "Ithaca, N.Y." and "Ithaca, NY", so without normalizing, the same
+# venue produces two different games.
+STATE_ABBREVIATIONS = {
+    # Associated Press style, which is what the feed writes ("Conn.", "Calif.").
+    "ALA": "AL", "ARIZ": "AZ", "ARK": "AR", "CALIF": "CA", "CAL": "CA",
+    "COLO": "CO", "CONN": "CT", "DEL": "DE", "FLA": "FL", "GA": "GA",
+    "ILL": "IL", "IND": "IN", "KAN": "KS", "KANS": "KS", "KY": "KY",
+    "LA": "LA", "MASS": "MA", "MD": "MD", "MICH": "MI", "MINN": "MN",
+    "MISS": "MS", "MO": "MO", "MONT": "MT", "NEB": "NE", "NEBR": "NE",
+    "NEV": "NV", "OKLA": "OK", "ORE": "OR", "OREG": "OR", "PA": "PA",
+    "TENN": "TN", "TEX": "TX", "VT": "VT", "VA": "VA", "WASH": "WA",
+    "WIS": "WI", "WISC": "WI", "WYO": "WY",
+    # States AP never abbreviates, so the feed spells them out in full. Without
+    # these they are left as-is and the same venue reads as two places.
+    "ALASKA": "AK", "HAWAII": "HI", "IDAHO": "ID", "IOWA": "IA",
+    "MAINE": "ME", "OHIO": "OH", "TEXAS": "TX", "UTAH": "UT",
+    # Multi-word states, which lose their spaces and periods before lookup.
+    "WVA": "WV", "WVIRGINIA": "WV", "WESTVIRGINIA": "WV",
+    "NMEX": "NM", "NEWMEXICO": "NM", "NEWYORK": "NY", "NEWJERSEY": "NJ",
+    "NEWHAMPSHIRE": "NH", "RHODEISLAND": "RI", "NORTHCAROLINA": "NC",
+    "SOUTHCAROLINA": "SC", "NORTHDAKOTA": "ND", "SOUTHDAKOTA": "SD",
+    "NDAK": "ND", "SDAK": "SD", "DISTRICTOFCOLUMBIA": "DC",
 }
 
-# The tag for each game
-GAME_TAG = ".sidearm-schedule-game"
-
-# The tag for each opponent name with a
-OPPONENT_NAME_TAG_A = ".sidearm-schedule-game-opponent-name a"
-
-# The tag for each opponent name
-OPPONENT_NAME_TAG = ".sidearm-schedule-game-opponent-name"
-
-# The tag for each opponent image
-OPPONENT_LOGO_TAG = ".sidearm-schedule-game-opponent-logo img"
-
-# The attribute for the opponent image URL
-OPPONENT_LOGO_URL_ATTR = "data-src"
-
-# The date/time block for each schedule row
-SCHEDULE_DATE_BLOCK_TAG = ".sidearm-schedule-game-opponent-date"
-
-# The first span in the date/time block is the start date. The remaining spans
-# can contain a time, an end date for a multi-day event, or a display-only span.
-DATE_TAG = f"{SCHEDULE_DATE_BLOCK_TAG} span"
-
-# The tag for each location
-LOCATION_TAG = ".sidearm-schedule-game-location"
-
-# The prefix for the sports schedules
-SCHEDULE_PREFIX = "https://cornellbigred.com/sports/"
+CALENDAR_URL = f"https://cornellbigred.com/services/responsive-calendar.ashx?type=events&sport=0&location=all"
 
 # The prefix for the live games
 LIVE_PREFIX = "https://cornellbigred.com/sports/calendar?vtype=list/"
-
-# The postfix for the sports schedules
-SCHEDULE_POSTFIX = "/schedule"
-
-# The tag for each result
-RESULT_TAG = ".sidearm-schedule-game-result"
-
-# The tag for the box score
-BOX_SCORE_TAG = ".sidearm-schedule-game-links-boxscore a"
-
-# The tag for the recap article link
-RECAP_TAG = ".sidearm-schedule-game-links-recap a"
-
-# The tag for the game ticket link
-GAME_TICKET_LINK = ".sidearm-schedule-game-links-tickets a"
-
-# Sidearm story article selectors
-SIDEARM_STORY_HEADLINE = "h1.sidearm-story-template-headline"
-SIDEARM_STORY_PUBLISHED_TIME = "time[pubdate]"
-SIDEARM_STORY_PUBLISHED_TIME_FALLBACK = ".sidearm-story-template-date time"
-SIDEARM_STORY_IMAGE = ".sidearm-story-template-media img"
-
-# Hosts used by schedule links and Cornell/Sidearm-hosted images.
-ALLOWED_URL_SCHEMES = frozenset({"http", "https"})
-ALLOWED_URL_HOSTS = frozenset({
-    "cornellbigred.com",
-    "dxbhsrqyrr690.cloudfront.net",
-})
 
 # HTML Tags
 TAG_TABLE = 'table'
@@ -87,35 +49,21 @@ TAG_IMG = 'img'
 
 # HTML Classes
 CLASS_SIDEARM_TABLE = 'sidearm-table'
-CLASS_HIDE_ON_LARGE_DOWN = 'hide-on-large-down'
-CLASS_HIDE_ON_SMALL_DOWN = 'hide-on-small-down'
 CLASS_SCORING_SUMMARY = 'scoring-summary'
 CLASS_OVERALL_STATS = 'overall-stats'
-CLASS_PLAY_BY_PLAY = 'play-by-play'
 CLASS_BOX_SCORE = 'box-score'
 
 # HTML Attributes
 ATTR_ARIA_LABEL = 'aria-label'
 ATTR_ALT = 'alt'
-ATTR_ID = 'id'
 
 # HTML IDs for Sections
 ID_BOX_SCORE = 'box-score'
-ID_PERIOD_1 = 'period-1'
-ID_PERIOD_2 = 'period-2'
-ID_SET_1 = 'set-1'
-ID_SET_2 = 'set-2'
-ID_SET_3 = 'set-3'
-ID_SET_4 = 'set-4'
-ID_SET_5 = 'set-5'
 
 # Labels
 LABEL_SCORING_SUMMARY = 'Scoring Summary'
-LABEL_CU = 'CU'
 
-# The dictionary mapping every Cornell sports schedule URL to sport and gender.
-# A sport can still be scheduled here when its box-score parser is unavailable;
-# the schedule scraper will retain the game without detail fields.
+# The dictionary mapping sports urls to gender
 SPORT_URLS = {
     "baseball": {"sport": "Baseball", "gender": "Mens"},
     "mens-basketball": {"sport": "Basketball", "gender": "Mens"},
@@ -197,13 +145,6 @@ SIDEARM_SPORTS = {
     "wvball": {"sport": "Volleyball", "gender": "Womens"},
 }
 
-# The URL for the squash stats
-SQUASH_STATS_URL = "https://api.ussquash.com/resources/leagues/scorecards/live"
-
-IMAGE_BASE_URL = (
-    "https://dxbhsrqyrr690.cloudfront.net/sidearm.nextgen.sites/cornellbigred.com"
-)
-
 # Cornell Sports YouTube Channel ID
 CHANNEL_ID = "UClSQOi2gnn9bi7mcgQrAVKA"
 
@@ -211,3 +152,24 @@ CHANNEL_ID = "UClSQOi2gnn9bi7mcgQrAVKA"
 VIDEO_LIMIT = 20
 
 ARTICLE_IMG_TAG = ".dom-art-container img"
+
+# Restored: still used by the recap and URL-safety helpers.
+ALLOWED_URL_SCHEMES = frozenset({"http", "https"})
+
+ALLOWED_URL_HOSTS = frozenset({
+    "cornellbigred.com",
+    "dxbhsrqyrr690.cloudfront.net",
+})
+
+HTTP_REQUEST_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (compatible; CornellSportsScraper/1.0)",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+}
+
+SIDEARM_STORY_HEADLINE = "h1.sidearm-story-template-headline"
+
+SIDEARM_STORY_IMAGE = ".sidearm-story-template-media img"
+
+SIDEARM_STORY_PUBLISHED_TIME = "time[pubdate]"
+
+SIDEARM_STORY_PUBLISHED_TIME_FALLBACK = ".sidearm-story-template-date time"
