@@ -80,7 +80,7 @@ class Game:
         """
         Converts the Game object to a dictionary format for MongoDB storage.
         """
-        return {
+        document = {
             "_id": self.id,
             "city": self.city,
             "date": self.date,
@@ -96,7 +96,6 @@ class Game:
             "team": self.team,
             "utc_date": self.utc_date,
             "ticket_link": self.ticket_link,
-            "event_id": self.event_id,
             "is_live": self.is_live,
             "last_updated": self.last_updated,
             "recap_link": self.recap_link,
@@ -104,6 +103,13 @@ class Game:
             "recap_article_image": self.recap_article_image,
             "recap_published_at": self.recap_published_at,
         }
+
+        # A sparse unique index still indexes an explicit null, so two games
+        # without an event_id would collide on insert. Omit the key instead.
+        if self.event_id is not None:
+            document["event_id"] = self.event_id
+
+        return document
 
     @staticmethod
     def from_dict(data) -> None:

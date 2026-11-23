@@ -10,10 +10,12 @@ re-creating every row it has already stored.
 Run this BEFORE the scraper starts matching on event_id. Until a game has its
 id, the scraper falls back to field matching and would create a duplicate.
 
-Matching is deliberately conservative: a feed event is only assigned to a stored
-game when exactly one game matches, first on date/sport/gender/time and then,
-where several match, narrowed by opponent. Anything still ambiguous is reported
-and left alone rather than guessed at.
+Matching is deliberately conservative. Candidates are stored games sharing the
+event's date, sport, gender and time; where several match, the opponent and then
+the city and state narrow them down. The single remaining candidate still has to
+be in the same place as the event, because date/sport/gender/time alone can match
+a game played somewhere else entirely and labelling that one would mislabel both.
+Anything still ambiguous is reported and left alone rather than guessed at.
 
     python3 scripts/backfill_event_id.py             # dry run, writes nothing
     python3 scripts/backfill_event_id.py --apply
@@ -34,7 +36,7 @@ load_dotenv()
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.database import db  # noqa: E402
-from src.scrapers.games_scraper import calendar_event_to_game_data  # noqa: E402
+from src.scrapers.games_scraper import calendar_event_to_game_data, normalize_state  # noqa: E402
 from src.services import TeamService  # noqa: E402
 from src.utils.convert_to_utc import parse_time_string  # noqa: E402
 from src.utils.constants import CALENDAR_URL, HTTP_REQUEST_HEADERS  # noqa: E402
@@ -102,6 +104,26 @@ def fetch_events(start, end):
     return events
 
 
+def same_place(stored, mapped):
+    """
+    Whether a stored game and a feed event are at the same place.
+
+    The old scraper wrote states several ways ("Md." and "MD"), so they are
+    compared canonically. A value missing from either side is not a
+    disagreement: plenty of stored rows carry no city, and rejecting those
+    would leave them to be re-created as duplicates, which is the whole thing
+    this backfill is trying to avoid.
+    """
+    stored_city = (stored.get("city") or "").strip().lower()
+    event_city = (mapped.get("city") or "").strip().lower()
+    if stored_city and event_city and stored_city != event_city:
+        return False
+
+    stored_state = normalize_state(stored.get("state")) or ""
+    event_state = normalize_state(mapped.get("state")) or ""
+    return not (stored_state and event_state and stored_state != event_state)
+
+
 def find_stored_game(collection, mapped):
     """
     The one stored game this event refers to.
@@ -114,7 +136,7 @@ def find_stored_game(collection, mapped):
         "sport": mapped["sport"],
         "gender": mapped["gender"],
     }
-    projection = {"_id": 1, "opponent_id": 1, "event_id": 1, "time": 1}
+    projection = {"_id": 1, "opponent_id": 1, "event_id": 1, "time": 1, "city": 1, "state": 1}
     candidates = list(collection.find({**base, "time": mapped["time"]}, projection))
 
     if not candidates:
@@ -132,8 +154,6 @@ def find_stored_game(collection, mapped):
         return None, "no stored game"
 
     if len(candidates) > 1:
-        # Several games share the slot, which happens for tournaments. The
-        # opponent usually separates them.
         team = TeamService.get_team_by_name(mapped["opponent_name"])
         if team:
             narrowed = [c for c in candidates if c.get("opponent_id") == team.id]
@@ -141,7 +161,15 @@ def find_stored_game(collection, mapped):
                 candidates = narrowed
 
     if len(candidates) > 1:
+        narrowed = [row for row in candidates if same_place(row, mapped)]
+        if narrowed:
+            candidates = narrowed
+
+    if len(candidates) > 1:
         return None, f"ambiguous ({len(candidates)} stored games match)"
+
+    if not same_place(candidates[0], mapped):
+        return None, "only candidate is in a different place"
 
     return candidates[0], "matched"
 

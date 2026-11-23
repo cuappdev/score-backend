@@ -429,7 +429,9 @@ def process_game_data(game_data):
 
     team = TeamService.get_team_by_name(game_data.get("opponent_name"))
     if not team:
-        logo_url = game_data.get("opponent").get("website")+game_data.get("opponent").get("image").get("filename")
+        # calendar_event_to_game_data already resolved this to an absolute URL,
+        # and the allowlist check above has had its say on it.
+        logo_url = game_data.get("opponent_logo")
         color = (
             get_dominant_color(logo_url)
             if logo_url
@@ -447,7 +449,7 @@ def process_game_data(game_data):
             "color": color,
             "image": logo_url,
             "b64_image": encoded_opponent_logo,
-            "name": game_data.get("opponent").get("title"),
+            "name": game_data.get("opponent_name"),
         }
         team = TeamService.create_team(team_data)
 

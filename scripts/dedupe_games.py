@@ -5,7 +5,13 @@ The old scraper took the state straight from the page, which spelled the same
 state several ways ("MD" and "Md.", "N.Y." and "NY"), so the same game could be
 stored twice. Canonicalizing the state makes those rows identical, which also
 makes them collide with the unique index on
-(sport, gender, date, opponent_id, state).
+(sport, gender, date, opponent_id, city, state, location).
+
+The grouping key below is exactly that index. Grouping on less would delete
+games that the index is happy to keep apart - two legitimate games against the
+same opponent on the same day at different sites, say. Grouping on more (time,
+for instance) would leave rows behind that the index still rejects, so the
+index would fail to build, which is the thing this script exists to prevent.
 
 For each colliding group this keeps one row and deletes the rest. The keeper is
 chosen by how much it carries, not arbitrarily: a row with an event_id wins,
@@ -55,7 +61,9 @@ def main():
             game.get("gender"),
             game.get("date"),
             game.get("opponent_id"),
+            game.get("city"),
             normalize_state(game.get("state")),
+            game.get("location"),
         )
         groups[key].append(game)
 
@@ -65,11 +73,13 @@ def main():
     print(f"=== {collection.count_documents({})} game(s), {len(duplicates)} duplicate group(s) ===\n")
 
     for key, rows in duplicates.items():
+        sport, gender, date, _opponent_id, city, state, location = key
         ranked = sorted(rows, key=keep_score, reverse=True)
         keeper, losers = ranked[0], ranked[1:]
         to_delete.extend(losers)
 
-        print(f"  {key[0]} {key[1]} {key[2]} (state -> {key[4]})")
+        where = " ".join(part for part in (city, location) if part)
+        print(f"  {sport} {gender} {date} {where} (state -> {state})")
         print(f"    KEEP   _id={keeper['_id']} state={keeper.get('state')!r} "
               f"event_id={keeper.get('event_id')} box_score={bool(keeper.get('box_score'))}")
         for loser in losers:
