@@ -1,4 +1,7 @@
-from graphene import ID, DateTime, ObjectType, Field, String, List, Int
+from graphene import ID, DateTime, ObjectType, Field, String, List, Int, Union
+
+from src.models.article import Article
+from src.models.youtube_video import YoutubeVideo
 
 
 class FavoriteTeamType(ObjectType):
@@ -248,3 +251,22 @@ class ArticleType(ObjectType):
     def __init__(self, **kwargs):
         for key, value in kwargs.items():
             setattr(self, key, value)
+
+    @staticmethod
+    def resolve_id(article, info):
+        return str(article.id) if article.id is not None else None
+
+
+class HighlightType(Union):
+    """A bookmarked highlight, either a YouTube video or an article."""
+
+    class Meta:
+        types = (YoutubeVideoType, ArticleType)
+
+    @classmethod
+    def resolve_type(cls, instance, info):
+        if isinstance(instance, YoutubeVideo):
+            return YoutubeVideoType
+        if isinstance(instance, Article):
+            return ArticleType
+        return None

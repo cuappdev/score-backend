@@ -6,6 +6,10 @@ import logging
 
 class ArticleService:
     @staticmethod
+    def get_article_by_id(article_id):
+        return ArticleRepository.find_by_id(article_id)
+
+    @staticmethod
     def get_articles(sports_type=None):
         """
         Retrieve all articles from the last 3 days, optionally filtered by sports_type, sorted by published_at descending.

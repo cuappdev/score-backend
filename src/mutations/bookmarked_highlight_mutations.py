@@ -3,6 +3,7 @@ from graphene import Boolean, Mutation, String
 
 from flask_jwt_extended import get_jwt_identity
 from src.services.user_service import UserService
+from src.services.article_service import ArticleService
 from src.services.youtube_video_service import YoutubeVideoService
 from src.utils.graphql_errors import graphql_jwt_required
 
@@ -23,7 +24,10 @@ class AddBookmarkedHighlight(Mutation):
             raise GraphQLError("User not found.")
         if not highlight_id.strip():
             raise GraphQLError("Highlight ID is required.")
-        if not YoutubeVideoService.get_video_by_id(highlight_id):
+        if not (
+            YoutubeVideoService.get_video_by_id(highlight_id)
+            or ArticleService.get_article_by_id(highlight_id)
+        ):
             raise GraphQLError("Highlight not found.")
         if not UserService.add_bookmarked_highlight(user_id, highlight_id):
             raise GraphQLError("Could not bookmark highlight.")
