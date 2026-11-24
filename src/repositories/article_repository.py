@@ -1,9 +1,29 @@
 from src.database import daily_sun_db
 from src.models.article import Article
 from pymongo import UpdateOne
+from bson.objectid import ObjectId
 from datetime import datetime, timedelta, timezone
 
 class ArticleRepository:
+    @staticmethod
+    def find_by_id(article_id):
+        """Retrieve an article by its GraphQL ID or source slug."""
+        if article_id is None:
+            return None
+
+        article_collection = daily_sun_db["news_articles"]
+        id_candidates = [{"_id": article_id}]
+        if isinstance(article_id, str):
+            try:
+                id_candidates.append({"_id": ObjectId(article_id)})
+            except Exception:
+                pass
+
+        article = article_collection.find_one(
+            {"$or": id_candidates + [{"slug": str(article_id)}]}
+        )
+        return Article.from_dict(article) if article else None
+
     @staticmethod
     def upsert(article):
         """

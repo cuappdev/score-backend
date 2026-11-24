@@ -2,14 +2,15 @@ from flask_jwt_extended import get_jwt_identity
 from graphene import ObjectType, String, Field, List
 from graphql import GraphQLError
 from src.services.user_service import UserService
+from src.services.article_service import ArticleService
 from src.services.youtube_video_service import YoutubeVideoService
-from src.types import YoutubeVideoType
+from src.types import HighlightType, YoutubeVideoType
 from src.utils.graphql_errors import graphql_jwt_required
 
 class YoutubeVideoQuery(ObjectType):
     youtube_videos = List(YoutubeVideoType)
     youtube_video = Field(YoutubeVideoType, id=String(required=True))
-    my_bookmarked_highlights = List(YoutubeVideoType)
+    my_bookmarked_highlights = List(HighlightType)
 
     def resolve_youtube_videos(self, info):
         """
@@ -28,4 +29,15 @@ class YoutubeVideoQuery(ObjectType):
         user = UserService.require_user(get_jwt_identity())
         if not user:
             raise GraphQLError("User not found.")
-        return YoutubeVideoService.get_videos_by_ids(user.bookmarked_highlight_ids)
+        highlights = []
+        for highlight_id in user.bookmarked_highlight_ids:
+            video = YoutubeVideoService.get_video_by_id(highlight_id)
+            if video:
+                highlights.append(video)
+                continue
+
+            article = ArticleService.get_article_by_id(highlight_id)
+            if article:
+                highlights.append(article)
+
+        return highlights
