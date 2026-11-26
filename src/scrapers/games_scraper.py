@@ -208,6 +208,8 @@ def fetch_game_schedule():
         max_workers=MAX_CONCURRENT_SPORTS, thread_name_prefix="Scraper"
     )
     future_to_sport = {}
+    done = set()
+    not_done = set()
     try:
         for sport, data in SPORT_URLS.items():
             url = SCHEDULE_PREFIX + sport + SCHEDULE_POSTFIX

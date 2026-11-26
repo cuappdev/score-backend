@@ -164,13 +164,6 @@ init_websocket_manager(socketio)
 register_websocket_events(socketio)
 
 
-def signal_handler(sig, frame):
-    sys.exit(0)
-
-
-signal.signal(signal.SIGINT, signal_handler)
-signal.signal(signal.SIGTERM, signal_handler)
-
 # Live games must stay in the web process so score updates can push over
 # Socket.IO. Without a Redis message queue, scraper.py cannot reach clients.
 from flask_apscheduler import APScheduler
@@ -187,6 +180,15 @@ def scrape_live_games():
 
 
 if __name__ == "__main__":
+    # Register signals only for the local socketio.run path. Under Gunicorn,
+    # import-time signal.signal would overwrite the worker's SIGTERM handler
+    # and skip graceful drain.
+    def signal_handler(sig, frame):
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+
     # allow_unsafe_werkzeug lets the dev server handle WebSockets; production runs
     # under gunicorn (see Dockerfile), so this path is local development only.
     scrape_live_games()
