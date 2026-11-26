@@ -9,3 +9,4 @@ from .logout_user import LogoutUser
 from .delete_user import DeleteUser
 from .favorite_team_mutations import AddFavoriteTeam, RemoveFavoriteTeam
 from .bookmarked_highlight_mutations import AddBookmarkedHighlight, RemoveBookmarkedHighlight
+from .report import CreateReport, DeleteReport
