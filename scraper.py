@@ -42,8 +42,17 @@ def _run_supervised(name, func, deadline_seconds):
     executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix=name)
     future = executor.submit(func)
     try:
-        future.result(timeout=deadline_seconds)
-        logger.info("Completed job %s in %.2f seconds", name, time.time() - start)
+        result = future.result(timeout=deadline_seconds)
+        if result is False:
+            logger.error(
+                "Job %s reported failure after %.2f seconds",
+                name,
+                time.time() - start,
+            )
+        else:
+            logger.info(
+                "Completed job %s in %.2f seconds", name, time.time() - start
+            )
     except FutureTimeoutError:
         logger.error(
             "Job %s exceeded %ss deadline; abandoning this run and freeing the "
@@ -110,8 +119,8 @@ signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
 
 if __name__ == "__main__":
-    # This process (thestack_scraper) is the single scheduler owner for every
-    # background job. The web process (app.py) runs none of these.
+    # This process owns heavy background jobs. Live-game scraping stays in
+    # app.py so Socket.IO pushes keep working without a Redis queue.
     scheduler.add_job(
         scrape_schedules, "interval", seconds=60 * 60, id="scrape_schedules"
     )
