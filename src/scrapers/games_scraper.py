@@ -363,9 +363,29 @@ def is_placeholder_game(game):
     team = TeamService.get_team_by_id(game.opponent_id)
     return bool(team and is_tournament_placeholder_team(team.name))
 
-def _detail_updates(game_data):
+def _has_live_detail(game):
+    """
+    True when a game's box score is being kept up to date by the live poller.
+
+    The schedule scrape runs every 12 hours and would otherwise replace a live
+    box score in the middle of a game. Scraped plays carry no play_id, so the
+    next live poll would have nothing to de-duplicate against and would append
+    every play of the game a second time.
+    """
+    if game is None:
+        return False
+    if game.is_live:
+        return True
+    return any(
+        play.get("play_id")
+        for play in (game.box_score or [])
+        if isinstance(play, dict)
+    )
+
+
+def _detail_updates(game_data, curr_game=None):
     updates = {}
-    if game_data.get("_box_score_scrape_succeeded", "box_score" in game_data):
+    if game_data.get("_box_score_scrape_succeeded", "box_score" in game_data) and not _has_live_detail(curr_game):
         updates["box_score"] = game_data.get("box_score")
         updates["score_breakdown"] = game_data.get("score_breakdown")
     if game_data.get("_recap_scrape_succeeded", "recap_link" in game_data):
@@ -524,7 +544,7 @@ def process_game_data(game_data):
         "state": state,
         "opponent_id": team.id,
         "ticket_link": game_data["ticket_link"],
-        **_detail_updates(game_data),
+        **_detail_updates(game_data, curr_game),
     }
 
     if curr_game:

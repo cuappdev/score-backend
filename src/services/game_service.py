@@ -6,6 +6,7 @@ from src.utils.helpers import (
     get_with_retries,
     is_tournament_placeholder_team,
     parse_sidearm_stats_url,
+    is_game_active,
     sidearm_dates_match,
 )
 from typing import Dict, List, Optional, Tuple
@@ -13,6 +14,7 @@ from pymongo.errors import DuplicateKeyError
 from bs4 import BeautifulSoup
 from src.utils.constants import HTTP_REQUEST_HEADERS, SIDEARM_SPORTS
 import logging
+from datetime import datetime, timezone
 from src.utils.helpers import convert_play_to_our_format
 
 logger = logging.getLogger(__name__)
@@ -232,41 +234,43 @@ class GameService:
             matching_game = GameService.find_matching_game(game_data)
             if matching_game:
                 game_id = matching_game.id
-                print("matching game id: ",game_id)
+                game_info = game_data.get('Game') or {}
+
+                # A finished game we have already settled needs no further
+                # polling: its score cannot change, and re-broadcasting it
+                # every 30 seconds told subscribers it was still live.
+                if game_info.get('IsComplete') and not matching_game.is_live and matching_game.result:
+                    logger.debug('Skipping completed game %s', game_id)
+                    return
+
+                # is_live, last_updated and result are written here too, so a
+                # game that has just ended gets one last update instead of
+                # being left flagged live for good.
                 was_updated = GameService.update_game_with_new_data(matching_game, game_data)
-                # notify all subscribers
                 if was_updated:
-                    # Update live status and timestamp
-                    from datetime import datetime, timezone
-                    update_data = {
-                        'is_live': True,
-                        'last_updated': datetime.now(timezone.utc).isoformat()
-                    }
-                    GameService.update_game(game_id, update_data)
-                        
                     # Refresh the game object
                     matching_game = GameService.get_game_by_id(game_id)
-                        
+
                     # Notify subscribers
                     try:
                         from src.websocket_manager import get_websocket_manager
                         websocket_manager = get_websocket_manager()
                         subscriber_count = websocket_manager.get_game_subscriber_count(game_id)
                         logger.info(f"Notifying {subscriber_count} subscribers of game {game_id} update")
-                        
-                        # Prepare update data
+
                         update_data = {
                             'gameId': game_id,
-                            'isLive': True,
+                            'isLive': bool(matching_game.is_live),
+                            'isComplete': bool(game_info.get('IsComplete')),
                             'lastUpdated': datetime.now(timezone.utc).isoformat(),
                             'boxScore': matching_game.box_score,
                             'scoreBreakdown': matching_game.score_breakdown,
-                            'result': matching_game.result
+                            'result': matching_game.result,
                         }
-                        
+
                         # Broadcast to WebSocket subscribers
                         websocket_manager.broadcast_game_update(game_id, update_data)
-                        
+
                     except Exception as e:
                         logger.error(f"Failed to send WebSocket notification for game {game_id}: {str(e)}")
             else:
@@ -386,20 +390,39 @@ class GameService:
         visiting_team = game_info.get('VisitingTeam', {})
         
         # Determine which team is Cornell
-        if home_team.get('Name', '').upper() == 'CORNELL':
-            cor_period_scores = home_team.get('PeriodScores', [])
-            opp_period_scores = visiting_team.get('PeriodScores', [])
-        else:
-            cor_period_scores = visiting_team.get('PeriodScores', [])
-            opp_period_scores = home_team.get('PeriodScores', [])
-        
+        cornell_is_home = home_team.get('Name', '').upper() == 'CORNELL'
+        cor_team = home_team if cornell_is_home else visiting_team
+        opp_team = visiting_team if cornell_is_home else home_team
+        cor_period_scores = cor_team.get('PeriodScores', [])
+        opp_period_scores = opp_team.get('PeriodScores', [])
+
         # Convert to our format
         score_breakdown = [[], []]
         for i in range(len(cor_period_scores)):
             score_breakdown[0].append(str(cor_period_scores[i]))
             score_breakdown[1].append(str(opp_period_scores[i]) if i < len(opp_period_scores) else "0")
-        
+
+        score_breakdown[0].extend(GameService.breakdown_totals(cor_team, game.sport))
+        score_breakdown[1].extend(GameService.breakdown_totals(opp_team, game.sport))
+
         return score_breakdown
+
+    def breakdown_totals(team: Dict, sport: Optional[str]) -> List[str]:
+        """
+        The cells that follow the per-period scores in a stored breakdown.
+
+        Most sports end with the game total. Baseball and softball box scores
+        end with runs, hits and errors, so a live breakdown has to as well or
+        the clients read errors as the score. Volleyball needs no special case:
+        its Score is sets won, which is exactly what its result ('W,3-1')
+        counts, so the plain total is already right.
+        """
+        total = str(team.get('Score', 0))
+        if (sport or '').lower() in ('baseball', 'softball'):
+            hits, errors = team.get('Hits'), team.get('Errors')
+            if hits is not None and errors is not None:
+                return [total, str(hits), str(errors)]
+        return [total]
     
     def get_game_plays(game_data: Dict) -> List[Dict]:
         """
@@ -426,12 +449,40 @@ class GameService:
             plays = list(reversed(game.get('LastPlays') or []))
 
         converted_plays = []
+        # Plays arrive oldest-first, so the running score carries forward and
+        # lets convert_play_to_our_format name the team on the plays Sidearm
+        # sends unattributed.
+        previous_score = None
         for play in plays:
-            converted_play = convert_play_to_our_format(play, game)
+            converted_play = convert_play_to_our_format(play, game, previous_score)
             if converted_play:
                 converted_plays.append(converted_play)
-        
+            if isinstance(play.get('Score'), dict):
+                previous_score = play['Score']
+
         return converted_plays
+
+    def result_from_live_data(game_data: Dict) -> Optional[str]:
+        """
+        Cornell's result in the stored "W,4-2" form, or None if not known yet.
+
+        Only filled in once Sidearm says the game is complete: a W written at
+        half time would be wrong for as long as the lead held.
+        """
+        game_info = (game_data or {}).get('Game') or {}
+        if not game_info.get('IsComplete'):
+            return None
+
+        home_team = game_info.get('HomeTeam') or {}
+        visiting_team = game_info.get('VisitingTeam') or {}
+        cornell_is_home = (home_team.get('Name') or '').upper() == 'CORNELL'
+        cor_score = (home_team if cornell_is_home else visiting_team).get('Score')
+        opp_score = (visiting_team if cornell_is_home else home_team).get('Score')
+        if cor_score is None or opp_score is None:
+            return None
+
+        outcome = 'W' if cor_score > opp_score else 'L' if cor_score < opp_score else 'T'
+        return f"{outcome},{cor_score}-{opp_score}"
 
     def update_game_with_new_data(game: Game, game_data: Dict) -> bool:
         """
@@ -445,39 +496,42 @@ class GameService:
             True if game was updated, False otherwise
         """
         try:
-            # Get new plays
-            new_plays = GameService.get_game_plays(game_data)
-            
-            if not new_plays:
-                return False
-            
-            # Get existing box score
             existing_box_score = game.box_score or []
-            
-            # Filter out duplicate plays
+            new_plays = GameService.get_game_plays(game_data)
             unique_plays = GameService.filter_duplicate_plays(existing_box_score, new_plays)
-            
-            if not unique_plays:
-                return False
-            
-            # Update box score
-            updated_box_score = existing_box_score + unique_plays
-            
-            # Update score breakdown if needed
-            updated_score_breakdown = GameService.update_score_breakdown(game_data, game)
 
-            print("updated box score: ",updated_box_score)
-            print("updated_score_breakdown: ",updated_score_breakdown)
-            
-            # Update the game
-            update_data = {
-                'box_score': updated_box_score,
-                'score_breakdown': updated_score_breakdown
-            }
-            
+            update_data = {}
+            if unique_plays:
+                update_data['box_score'] = existing_box_score + unique_plays
+
+            # Recomputed every poll rather than only when a play arrives. The
+            # last poll of a game usually brings no new play, and that is
+            # exactly the poll that has to carry the final score, write the
+            # result and clear is_live.
+            score_breakdown = GameService.update_score_breakdown(game_data, game)
+            if score_breakdown != (game.score_breakdown or []):
+                update_data['score_breakdown'] = score_breakdown
+
+            result = GameService.result_from_live_data(game_data)
+            if result and result != game.result:
+                update_data['result'] = result
+
+            is_live = is_game_active(game_data)
+            if is_live != bool(game.is_live):
+                update_data['is_live'] = is_live
+
+            if not update_data:
+                return False
+
+            update_data['last_updated'] = datetime.now(timezone.utc).isoformat()
             GameService.update_game(game.id, update_data)
-            logger.info(f"Updated game {game.id} with {len(unique_plays)} new plays")
-            
+            logger.info(
+                "Updated game %s: %d new play(s), fields %s",
+                game.id,
+                len(unique_plays),
+                sorted(field for field in update_data if field != 'last_updated'),
+            )
+
             return True
             
         except Exception as e:
