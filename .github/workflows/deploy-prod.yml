@@ -51,4 +51,5 @@ jobs:
           script: |
             docker stack deploy -c docker-compose.yml thestack
             docker service update --image cornellappdev/score:${IMAGE_TAG} thestack_app
+            docker service update --image cornellappdev/score:${IMAGE_TAG} thestack_scraper
             docker system prune -af

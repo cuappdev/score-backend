@@ -1,10 +1,9 @@
 import logging
-import argparse
 import os
 import signal
 import sys
 import time
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from dotenv import load_dotenv
 
@@ -17,15 +16,19 @@ from flask_graphql import GraphQLView
 from flask_socketio import SocketIO
 from graphene import Schema
 from src.schema import Query, Mutation
-from src.scrapers.games_scraper import fetch_game_schedule, fetch_live_games
-from src.scrapers.youtube_stats import fetch_videos
-from src.scrapers.daily_sun_scrape import fetch_news
-from src.services.article_service import ArticleService
+from src.scrapers.games_scraper import fetch_live_games
 from src.utils.constants import JWT_SECRET_KEY
 from src.websocket_manager import init_websocket_manager
 from src.websocket_events import register_websocket_events
 from src.utils.team_loader import TeamLoader
 from src.database import db, client
+
+# NOTE: Heavy background scraping (schedules, YouTube, Daily Sun, token
+# cleanup) lives in `scraper.py` / `thestack_scraper`, NOT here.
+# Exception: live-game scraping stays in this process so WebSocket pushes
+# via get_websocket_manager() keep working. Moving live scrapes out needs
+# a Redis/Socket.IO message queue first (follow-up).
+
 
 import firebase_admin
 from firebase_admin import credentials
@@ -72,8 +75,10 @@ def check_if_token_revoked(jwt_header, jwt_payload: dict) -> bool:
         query = {"$or": [{"jti": jti}, {"user_id": str(user_id)}]}
     return db["token_blocklist"].find_one(query) is not None
 
+
 # Initialize SocketIO
 socketio = SocketIO(app, cors_allowed_origins="*", logger=True, engineio_logger=True)
+
 
 @app.before_request
 def start_timer():
@@ -82,13 +87,15 @@ def start_timer():
     if request.path == "/graphql" and request.method == "POST":
         try:
             # Try to extract the GraphQL query name for better logging
-            query_data = request.get_json()
-            if query_data and "query" in query_data:
+            query_data = request.get_json(silent=True)
+            if isinstance(query_data, dict) and isinstance(
+                query_data.get("query"), str
+            ):
                 g.query = query_data["query"].split("{", 1)[0].strip()
                 logging.info(
                     f"[{time.strftime('%H:%M:%S')}] --> GraphQL {g.query} started"
                 )
-        except:
+        except Exception:
             pass
 
     logging.info(
@@ -144,6 +151,7 @@ def health_check():
     except Exception:
         return jsonify({"status": "unhealthy", "database": "disconnected"}), 503
 
+
 app.add_url_rule(
     "/graphql",
     view_func=GraphQLView.as_view(
@@ -155,103 +163,35 @@ app.add_url_rule(
 init_websocket_manager(socketio)
 register_websocket_events(socketio)
 
-# Setup command line arguments
-def parse_args():
-    parser = argparse.ArgumentParser(description="Skip scraping tasks, for dev purposes.")
-    parser.add_argument(
-        "--no-scrape",
-        action="store_true",
-        help="Skips scraping tasks if set, useful for frontend development.",
-    )
-    parser.add_argument(
-        "--no-daily-sun",
-        action="store_true",
-        help="Skips using the Daily Sun page for alerts",
-    )
-    return parser.parse_args()
 
-# Only parse arguments when running directly (not when imported by gunicorn)
-if __name__ == "__main__":
-    args = parse_args()
-else:
-    # Default args when imported by gunicorn
-    class DefaultArgs:
-        no_scrape = False
-        no_daily_sun = False
-    args = DefaultArgs()
+# Live games must stay in the web process so score updates can push over
+# Socket.IO. Without a Redis message queue, scraper.py cannot reach clients.
+from flask_apscheduler import APScheduler
 
-def signal_handler(sig, frame):
-    sys.exit(0)
+scheduler = APScheduler()
+scheduler.init_app(app)
+scheduler.start()
 
 
-signal.signal(signal.SIGINT, signal_handler)
-signal.signal(signal.SIGTERM, signal_handler)
-
-# Only parse arguments when running directly (not when imported by gunicorn)
-if __name__ == "__main__":
-    args = parse_args()
-else:
-    # Default args when imported by gunicorn
-    class DefaultArgs:
-        no_scrape = False
-        no_daily_sun = False
-    args = DefaultArgs()
-
-# Only run scraping tasks if not disabled
-if not args.no_scrape:
-    from flask_apscheduler import APScheduler
-    scheduler = APScheduler()
-    scheduler.init_app(app)
-    scheduler.start()
-
-    @scheduler.task("interval", id="cleanse_token_blocklist", seconds=86400)  # 24 hours
-    def cleanse_token_blocklist():
-        """Remove expired tokens from blocklist so the collection doesn't grow forever."""
-        from datetime import timezone
-        from src.database import db
-        result = db["token_blocklist"].delete_many(
-            {"expires_at": {"$lt": datetime.now(timezone.utc)}}
-        )
-        if result.deleted_count:
-            logging.info(f"Cleansed {result.deleted_count} expired token(s) from blocklist")
-
-    @scheduler.task("interval", id="scrape_schedules", seconds=43200) # 12 hours
-    def scrape_schedules():
-        logging.info("Scraping game schedules...")
-        fetch_game_schedule()
-
-    @scheduler.task("interval", id="scrape_videos", seconds=43200) # 12 hours
-    def scrape_videos():
-        logging.info("Scraping YouTube videos...")
-        fetch_videos()
-
-    @scheduler.task("interval", id="scrape_live_games", seconds=30)
-    def scrape_live_games():
-        logging.info("Scraping live games...")
-        fetch_live_games()
-
-    scrape_schedules()
-    scrape_videos()
-    scrape_live_games()
-
-if not args.no_daily_sun and not args.no_scrape:
-    @scheduler.task("interval", id="scrape_daily_sun", seconds=3600)
-    def scrape_daily_sun():
-        logging.info("Getting Daily Sun Sports News...")
-        fetch_news()
-
-    @scheduler.task("interval", id="cleanse_daily_sun_db", seconds=604800) # 1 week
-    def cleanse_daily_sun_db():
-        logging.info("Cleaning the Daily Sun database from old articles...")
-        ArticleService.cleanse_old_articles()
-
-    scrape_daily_sun()
-    cleanse_daily_sun_db()
+@scheduler.task("interval", id="scrape_live_games", seconds=30)
+def scrape_live_games():
+    logging.info("Scraping live games...")
+    fetch_live_games()
 
 
 if __name__ == "__main__":
+    # Register signals only for the local socketio.run path. Under Gunicorn,
+    # import-time signal.signal would overwrite the worker's SIGTERM handler
+    # and skip graceful drain.
+    def signal_handler(sig, frame):
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+
     # allow_unsafe_werkzeug lets the dev server handle WebSockets; production runs
     # under gunicorn (see Dockerfile), so this path is local development only.
+    scrape_live_games()
     socketio.run(
         app, debug=True, host="0.0.0.0", port=8000, allow_unsafe_werkzeug=True
     )
