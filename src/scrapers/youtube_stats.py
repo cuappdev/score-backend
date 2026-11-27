@@ -12,6 +12,9 @@ load_dotenv()
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 
 
+from src.utils.helpers import extract_gender_from_title, extract_sport_from_title
+
+
 def fetch_videos():
     """
     Fetches the latest videos from the YouTube API and stores them in the database.
@@ -106,6 +109,10 @@ def process_video_item(item):
 
     duration = get_video_duration(video_id)
 
+    # The search endpoint's snippet carries no tags, so the title is all we have
+    sport = extract_sport_from_title(title)
+    gender = extract_gender_from_title(title, sport)
+
     video_data = {
         "id": video_id,  
         "title": title,
@@ -115,6 +122,8 @@ def process_video_item(item):
         "url": video_url,
         "published_at": published_at,
         "duration": duration,
+        "sport": sport,
+        "gender": gender,
     }
     process_video_data(video_data)
 

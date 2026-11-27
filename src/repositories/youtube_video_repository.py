@@ -13,6 +13,20 @@ class YoutubeVideoRepository:
         return [YoutubeVideo.from_dict(video) for video in videos]
 
     @staticmethod
+    def find_filtered(sport=None, gender=None):
+        """
+        Retrieve YouTube videos, optionally narrowed by sport and gender.
+        """
+        collection = db["youtubevideo"]
+        query = {}
+        if sport:
+            query["sport"] = sport
+        if gender:
+            query["gender"] = gender
+        videos = collection.find(query)
+        return [YoutubeVideo.from_dict(video) for video in videos]
+
+    @staticmethod
     def find_by_id(video_id):
         """
         Retrieve a YouTube video by its ID.

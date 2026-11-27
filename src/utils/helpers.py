@@ -217,36 +217,127 @@ def extract_sport_from_title(title):
     title_lower = title.lower()
     
     sport_patterns = [
-        # Ice Hockey
-        (r"ice\s+hockey", "Ice Hockey"),
-        (r"women'?s\s+ice\s+hockey", "Ice Hockey"),
-        (r"men'?s\s+ice\s+hockey", "Ice Hockey"),
-        # Field Hockey
-        (r"field\s+hockey", "Field Hockey"),
-        # Hockey
-        (r"\bhockey\b", "Ice Hockey"),
-        # Basketball
-        (r"basketball", "Basketball"),
-        # Football
-        (r"\bfootball\b", "Football"),
-        # Soccer
-        (r"\bsoccer\b", "Soccer"),
-        # Volleyball
-        (r"volleyball", "Volleyball"),
-        # Wrestling
-        (r"wrestling", "Wrestling"),
-        # Sprint Football
         (r"sprint\s+football", "Sprint Football"),
+        (r"field\s+hockey", "Field Hockey"),
+        (r"ice\s+hockey", "Ice Hockey"),
+        (r"\bhockey\b", "Ice Hockey"),
+        (r"\bfootball\b", "Football"),
+        (r"lacrosse", "Lacrosse"),
+        (r"basketball", "Basketball"),
+        (r"volleyball", "Volleyball"),
+        (r"\bsoccer\b", "Soccer"),
+        (r"wrestling", "Wrestling"),
+        (r"baseball", "Baseball"),
+        (r"softball", "Softball"),
+        (r"cross\s+country", "Cross Country"),
+        (r"track\s*(?:&|and)\s*field", "Track & Field"),
+        (r"swimming|diving", "Swimming & Diving"),
+        (r"lightweight\s+rowing", "Rowing - Lightweight"),
+        (r"heavyweight\s+rowing", "Rowing - Heavyweight"),
+        (r"\browing\b|\bcrew\b", "Rowing"),
+        (r"\btennis\b", "Tennis"),
+        (r"\bsquash\b", "Squash"),
+        (r"\bgolf\b", "Golf"),
+        (r"\bpolo\b", "Polo"),
+        (r"gymnastics", "Gymnastics"),
+        (r"fencing", "Fencing"),
+        (r"equestrian", "Equestrian"),
+        (r"sailing", "Sailing"),
     ]
     
     for pattern, sport_name in sport_patterns:
         if re.search(pattern, title_lower):
             return sport_name
     
-    if "ice" in title_lower and ("hockey" in title_lower or "cornell" in title_lower):
-        return "Ice Hockey"
-    
     return None
+
+def _single_gender_sports():
+    """
+    Sports where Cornell fields only one team, so the gender is implied.
+    Derived from SPORT_URLS rather than hardcoded, so adding a team keeps this
+    in step.
+    """
+    from .constants import SPORT_URLS
+
+    genders = {}
+    for entry in SPORT_URLS.values():
+        genders.setdefault(entry["sport"].strip(), set()).add(entry["gender"])
+    return {sport: next(iter(g)) for sport, g in genders.items() if len(g) == 1}
+
+
+def extract_gender_from_title(title: str, sport: str = None):
+    """
+    Work out which team a headline or video title refers to.
+
+    Args:
+        title: The article or video title.
+        sport: The sport already extracted from the title, if known. Used to
+               fill in the gender for sports Cornell fields only one team in,
+               which are usually written without it ("Cornell Volleyball").
+
+    Returns:
+        "Mens", "Womens", or None when neither the title nor the sport settles it.
+    """
+    if title:
+        lowered = title.lower().replace("\u2019", "'")
+        if re.search(r"\bwomen'?s?\b", lowered):
+            return "Womens"
+        if re.search(r"\bmen'?s?\b", lowered):
+            return "Mens"
+
+    if sport:
+        return _single_gender_sports().get(sport.strip())
+
+    return None
+
+
+# Tags that sit on every sports article and say nothing about which team it is.
+GENERIC_ARTICLE_TAGS = {"sports", "sports-story", "top-stories", "topstories", "news"}
+
+
+def normalize_tag_slug(slug: str) -> str:
+    """
+    Flatten a Daily Sun tag slug to a comparable form.
+
+    The feed is inconsistent about these: underscores and hyphens are mixed,
+    casing varies, and the school name is sometimes prefixed. "womens_hockey",
+    "Womens-Hockey" and "cornell-womens-hockey" all mean the same thing.
+    """
+    flattened = (slug or "").lower().replace("_", "-")
+    return re.sub(r"^cornell-", "", flattened)
+
+
+def _article_tag_slugs(tags):
+    """The meaningful tag slugs on an article, normalized, noise removed."""
+    slugs = (normalize_tag_slug(tag.get("slug")) for tag in tags or [])
+    return [slug for slug in slugs if slug and slug not in GENERIC_ARTICLE_TAGS]
+
+
+def extract_sport_from_tags(tags):
+    """
+    Read the sport off a Daily Sun article's tags.
+
+    Catches articles whose headline never names the sport, e.g. "Quakers Beat
+    the Red by a Single Point", which is tagged football.
+    """
+    for slug in _article_tag_slugs(tags):
+        # Drop any gender prefix so the slug reads like a plain sport name.
+        bare = re.sub(r"^(mens|womens|m|w)-", "", slug).replace("-", " ")
+        sport = extract_sport_from_title(bare)
+        if sport:
+            return sport
+    return None
+
+
+def extract_gender_from_tags(tags):
+    """Read the gender off a Daily Sun article's tags, if any name one."""
+    for slug in _article_tag_slugs(tags):
+        if slug.startswith("womens-") or slug in ("womens", "w-soccer"):
+            return "Womens"
+        if slug.startswith("mens-") or slug in ("mens", "m-soccer"):
+            return "Mens"
+    return None
+
 
 def extract_sport_type_from_title(title: str):
     """

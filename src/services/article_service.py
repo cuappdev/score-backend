@@ -6,14 +6,15 @@ import logging
 
 class ArticleService:
     @staticmethod
-    def get_articles(sports_type=None):
+    def get_articles(sports_type=None, gender=None):
         """
-        Retrieve all articles from the last 3 days, optionally filtered by sports_type, sorted by published_at descending.
+        Retrieve all articles from the last 3 days, optionally filtered by
+        sports_type and gender, sorted by published_at descending.
         """
         try:
-            if sports_type:
-                return ArticleRepository.find_by_sports_type(sports_type)
-            return ArticleRepository.find_recent()
+            return ArticleRepository.find_recent_filtered(
+                sports_type=sports_type, gender=gender
+            )
         except Exception as e:
             logging.error(f"Error retrieving articles: {str(e)}")
             return []
@@ -27,6 +28,7 @@ class ArticleService:
             article = Article(
                 title=article_data["title"],
                 sports_type=article_data["sports_type"],
+                gender=article_data.get("gender"),
                 published_at=article_data["published_at"],
                 url=article_data["url"],
                 slug=article_data["slug"],
@@ -49,6 +51,7 @@ class ArticleService:
                 Article(
                     title=data["title"],
                     sports_type=data["sports_type"],
+                    gender=data.get("gender"),
                     published_at=data["published_at"],
                     url=data["url"],
                     slug=data["slug"],

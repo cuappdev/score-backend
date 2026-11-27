@@ -4,7 +4,12 @@ from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 from ..services import ArticleService
 from ..utils.constants import ARTICLE_IMG_TAG
-from ..utils.helpers import extract_sport_type_from_title
+from ..utils.helpers import (
+    extract_gender_from_tags,
+    extract_gender_from_title,
+    extract_sport_from_tags,
+    extract_sport_type_from_title,
+)
 import logging
 from bs4 import BeautifulSoup
 import base64
@@ -37,9 +42,13 @@ def fetch_news():
             published_at = published_at_dt.isoformat().replace('+00:00', 'Z')
             
             if published_at_dt >= three_days_ago:
-                # Extract sport type from title
                 title = article["headline"]
-                sports_type = extract_sport_type_from_title(title)
+                tags = article.get("tags")
+
+                sports_type = extract_sport_from_tags(tags) or extract_sport_type_from_title(title)
+
+                # Gender is the other way round: headlines usually say it, and for sports Cornell fields one team in the headline route caninfer it from the sport which the tags cannot
+                gender = extract_gender_from_title(title, sports_type) or extract_gender_from_tags(tags)
                 article_url = f"https://cornellsun.com/article/{article['slug']}"
 
                 article_image = None
@@ -61,6 +70,7 @@ def fetch_news():
                     "title": article["headline"],
                     "image": article_image,
                     "sports_type": sports_type,
+                    "gender": gender,
                     "published_at": published_at,
                     "url": article_url,
                     "slug": article["slug"],

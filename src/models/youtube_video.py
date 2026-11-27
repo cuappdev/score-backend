@@ -16,7 +16,8 @@ class YoutubeVideo:
     """
 
     def __init__(
-        self, title, description, thumbnail, b64_thumbnail, url, published_at, duration=None, id=None
+        self, title, description, thumbnail, b64_thumbnail, url, published_at, duration=None, id=None,
+        sport=None, gender=None
     ):
         self.id = id if id else str(ObjectId())
         self.title = title
@@ -26,6 +27,8 @@ class YoutubeVideo:
         self.url = url
         self.published_at = published_at
         self.duration = duration
+        self.sport = sport
+        self.gender = gender
 
     def to_dict(self):
         """
@@ -40,6 +43,8 @@ class YoutubeVideo:
             "url": self.url,
             "published_at": self.published_at,
             "duration": self.duration,
+            "sport": self.sport,
+            "gender": self.gender,
         }
 
     @staticmethod
@@ -56,4 +61,6 @@ class YoutubeVideo:
             url=data.get("url"),
             published_at=data.get("published_at"),
             duration=data.get("duration"),
+            sport=data.get("sport"),
+            gender=data.get("gender"),
         )
