@@ -339,12 +339,42 @@ def is_game_active(game_data: Dict) -> bool:
         )
 
 SCORING_KEYWORDS = [
-    'GOAL', 'SCORE', 'TOUCHDOWN', 'FIELD GOAL', 'SHOT',
+    'GOAL', 'SCORE', 'TOUCHDOWN', 'FIELD GOAL',
     'KILL', 'ACE', 'ATTACK', 'BLOCK', 'SERVICE', 'ERROR', 'HIT', 'SPIKE',
 ]
 
+# Matched on word boundaries rather than as substrings. As substrings these are
+# badly behaved: 'ACE' is inside hockey's 'FACEOFF', which put all 65 faceoffs
+# of one game in the box score next to the 6 goals.
+SCORING_KEYWORD_RE = re.compile(
+    r'\b(?:%s)\b' % '|'.join(re.escape(keyword) for keyword in SCORING_KEYWORDS)
+)
 
-def convert_play_to_our_format(play: Dict, game: Dict) -> Optional[Dict]:
+
+def team_from_score_change(play_score, previous_score, cornell_is_home: bool) -> str:
+    """
+    Work out who scored by comparing a play's score with the one before it.
+
+    Hockey sends Team: null on exactly the plays that matter - every Goal in a
+    game arrives unattributed while the shots around it are labelled - so the
+    score is the only thing left to go on.
+
+    Returns '' when the scores give no answer, which leaves the old behaviour
+    for plays that were never attributable.
+    """
+    if not isinstance(play_score, dict):
+        return ''
+    previous = previous_score if isinstance(previous_score, dict) else {}
+    home_gain = (play_score.get('HomeTeam') or 0) - (previous.get('HomeTeam') or 0)
+    away_gain = (play_score.get('VisitingTeam') or 0) - (previous.get('VisitingTeam') or 0)
+    if home_gain > away_gain:
+        return 'COR' if cornell_is_home else 'OPP'
+    if away_gain > home_gain:
+        return 'OPP' if cornell_is_home else 'COR'
+    return ''
+
+
+def convert_play_to_our_format(play: Dict, game: Dict, previous_score: Optional[Dict] = None) -> Optional[Dict]:
         """
         Convert a Sidearm play to our box score format.
 
@@ -376,7 +406,7 @@ def convert_play_to_our_format(play: Dict, game: Dict) -> Optional[Dict]:
                 is_scoring_play = True
             else:
                 label = (play.get('Type') or description).upper()
-                is_scoring_play = any(k in label for k in SCORING_KEYWORDS)
+                is_scoring_play = bool(SCORING_KEYWORD_RE.search(label))
 
             if not is_scoring_play:
                 return None
@@ -403,7 +433,9 @@ def convert_play_to_our_format(play: Dict, game: Dict) -> Optional[Dict]:
             elif scoring_team == 'VisitingTeam':
                 team = 'OPP' if cornell_is_home else 'COR'
             else:
-                team = ''
+                # Hockey leaves Team null on exactly the plays that matter, so
+                # fall back to whichever side's score went up.
+                team = team_from_score_change(play_score, previous_score, cornell_is_home)
 
             return {
                 'play_id': play.get('Id'),
